@@ -9,10 +9,23 @@ import "./styles/markdown.css";
 
 const API_BASE_URL = "https://localagent.diyarbek.uz";
 
+const initialConfigFormState = {
+  odoo_url: "",
+  odoo_db: "",
+  odoo_username: "",
+  odoo_password: "",
+  telegram_bot_token: "",
+  openai_api_key: "",
+  is_active: true,
+  auto_start: false,
+};
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [token, setToken] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -22,6 +35,9 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [error, setError] = useState("");
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [config, setConfig] = useState(null);
+  const [configForm, setConfigForm] = useState(initialConfigFormState);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState([]);
@@ -44,6 +60,7 @@ function App() {
       setUsername(savedUsername);
       setIsLoggedIn(true);
       loadSessions(savedToken);
+      loadConfig(savedToken);
     }
   }, []);
 
@@ -78,6 +95,7 @@ function App() {
       localStorage.setItem("username", username);
 
       loadSessions(data.access);
+      loadConfig(data.access);
     } catch (err) {
       setError(err.message || "Login xato. Iltimos, qaytadan urinib ko'ring.");
       console.error("Login error:", err);
@@ -89,15 +107,31 @@ function App() {
     e.preventDefault();
     setError("");
 
+    if (password !== passwordConfirm) {
+      setError("Passwords do not match");
+      return;
+    }
+
     try {
-      // Bu yerda register endpoint qo'shilishi kerak
-      // Hozircha placeholder
-      setError(
-        "Register funksiyasi hozircha ishlamaydi. Backend da endpoint qo'shing."
-      );
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          password_confirm: passwordConfirm,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Registration failed");
+      }
+
+      await handleLogin(e);
     } catch (err) {
-      setError(err.message || "Register xato.");
-      console.error("Register error:", err);
+      setError(err.message);
     }
   };
 
@@ -107,9 +141,14 @@ function App() {
     setToken(null);
     setUsername("");
     setPassword("");
+    setEmail("");
+    setPasswordConfirm("");
     setSessions([]);
     setCurrentSessionId(null);
     setMessages([]);
+    setConfig(null);
+    setConfigForm(initialConfigFormState);
+    setShowConfigModal(false);
     localStorage.clear();
   };
 
@@ -132,6 +171,64 @@ function App() {
       }
     } catch (err) {
       console.error("Load sessions error:", err);
+    }
+  };
+
+  const loadConfig = async (authToken) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/config/me/`, {
+        headers: { Authorization: `Bearer ${authToken || token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConfig(data);
+        setConfigForm({
+          odoo_url: data.odoo_url || "",
+          odoo_db: data.odoo_db || "",
+          odoo_username: data.odoo_username || "",
+          odoo_password: "",
+          telegram_bot_token: "",
+          openai_api_key: "",
+          is_active: data.is_active || false,
+          auto_start: data.auto_start || false,
+        });
+      }
+    } catch (err) {
+      console.error("Load config error:", err);
+    }
+  };
+
+  const handleConfigSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const method = config ? "PATCH" : "POST";
+      const url = config
+        ? `${API_BASE_URL}/api/v1/config/${config.id}/`
+        : `${API_BASE_URL}/api/v1/config/`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(configForm),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Configuration save failed");
+      }
+
+      const data = await response.json();
+      setConfig(data);
+      setShowConfigModal(false);
+      alert("Configuration saved successfully!");
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -375,6 +472,15 @@ function App() {
                 style={styles.modalInput}
                 autoFocus
               />
+              {isRegisterMode && (
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={styles.modalInput}
+                />
+              )}
               <input
                 type="password"
                 placeholder="Password"
@@ -382,6 +488,15 @@ function App() {
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.modalInput}
               />
+              {isRegisterMode && (
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  style={styles.modalInput}
+                />
+              )}
               <button type="submit" style={styles.modalButton}>
                 {isRegisterMode ? "Register" : "Login"}
               </button>
@@ -419,6 +534,143 @@ function App() {
         </div>
       )}
 
+      {showConfigModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <h2 style={styles.modalTitle}>Odoo Configuration</h2>
+            {error && <div style={styles.error}>{error}</div>}
+
+            <form onSubmit={handleConfigSubmit}>
+              <input
+                type="url"
+                placeholder="Odoo URL (e.g., https://mycompany.odoo.com)"
+                value={configForm.odoo_url}
+                onChange={(e) =>
+                  setConfigForm({ ...configForm, odoo_url: e.target.value })
+                }
+                style={styles.modalInput}
+              />
+              <input
+                type="text"
+                placeholder="Database Name"
+                value={configForm.odoo_db}
+                onChange={(e) =>
+                  setConfigForm({ ...configForm, odoo_db: e.target.value })
+                }
+                style={styles.modalInput}
+              />
+              <input
+                type="text"
+                placeholder="Odoo Username"
+                value={configForm.odoo_username}
+                onChange={(e) =>
+                  setConfigForm({
+                    ...configForm,
+                    odoo_username: e.target.value,
+                  })
+                }
+                style={styles.modalInput}
+              />
+              <input
+                type="password"
+                placeholder="Odoo Password"
+                value={configForm.odoo_password}
+                onChange={(e) =>
+                  setConfigForm({
+                    ...configForm,
+                    odoo_password: e.target.value,
+                  })
+                }
+                style={styles.modalInput}
+              />
+              <input
+                type="password"
+                placeholder="Telegram Bot Token"
+                value={configForm.telegram_bot_token}
+                onChange={(e) =>
+                  setConfigForm({
+                    ...configForm,
+                    telegram_bot_token: e.target.value,
+                  })
+                }
+                style={styles.modalInput}
+              />
+              <input
+                type="password"
+                placeholder="OpenAI API Key"
+                value={configForm.openai_api_key}
+                onChange={(e) =>
+                  setConfigForm({
+                    ...configForm,
+                    openai_api_key: e.target.value,
+                  })
+                }
+                style={styles.modalInput}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "16px",
+                  marginBottom: "16px",
+                  color: "#cbd5e0",
+                }}
+              >
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={configForm.is_active}
+                    onChange={(e) =>
+                      setConfigForm({
+                        ...configForm,
+                        is_active: e.target.checked,
+                      })
+                    }
+                  />
+                  Active
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={configForm.auto_start}
+                    onChange={(e) =>
+                      setConfigForm({
+                        ...configForm,
+                        auto_start: e.target.checked,
+                      })
+                    }
+                  />
+                  Auto-start
+                </label>
+              </div>
+
+              <button type="submit" style={styles.modalButton}>
+                Save Configuration
+              </button>
+            </form>
+
+            <button
+              style={styles.toggleButton}
+              onClick={() => setShowConfigModal(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <div style={styles.sidebar}>
         {/* Logo */}
@@ -437,6 +689,13 @@ function App() {
           >
             <span style={styles.icon}>+</span>
             <span>New Chat</span>
+          </button>
+          <button
+            style={styles.menuItem}
+            onClick={() => setShowConfigModal(true)}
+          >
+            <span style={styles.icon}>⚙️</span>
+            <span>Settings</span>
           </button>
 
           {/* Chat History */}
@@ -525,12 +784,69 @@ function App() {
                 Get Started
               </button>
             </div>
-          ) : !currentSessionId ? (
+          ) : !currentSessionId || messages.length === 0 ? (
             <div style={styles.welcomeContainer}>
-              <h1 style={styles.welcomeTitle}>Start a new conversation</h1>
-              <p style={styles.welcomeSubtitle}>
-                Ask about your business data...
+              <div style={styles.biAgentIcon}>📊</div>
+              <h1 style={styles.biAgentTitle}>BI Agent Ready</h1>
+              <p style={styles.biAgentSubtitle}>
+                Ask questions about your Odoo data. I can analyze sales,
+                inventory, customers, and generate reports.
               </p>
+
+              {/* Suggestion Cards */}
+              <div style={styles.suggestionCards}>
+                <button
+                  style={styles.suggestionCard}
+                  className="suggestion-card"
+                  onClick={() =>
+                    setInputMessage(
+                      "Give me a business overview with revenue, orders, and trends"
+                    )
+                  }
+                >
+                  <div style={styles.cardIcon}>📈</div>
+                  <div style={styles.cardTitle}>Business Overview</div>
+                  <div style={styles.cardSubtitle}>Revenue, orders, trends</div>
+                </button>
+
+                <button
+                  style={styles.suggestionCard}
+                  className="suggestion-card"
+                  onClick={() =>
+                    setInputMessage("Show me top customers by revenue")
+                  }
+                >
+                  <div style={styles.cardIcon}>👥</div>
+                  <div style={styles.cardTitle}>Top Customers</div>
+                  <div style={styles.cardSubtitle}>Customer rankings</div>
+                </button>
+
+                <button
+                  style={styles.suggestionCard}
+                  className="suggestion-card"
+                  onClick={() =>
+                    setInputMessage(
+                      "Check inventory levels and show low stock alerts"
+                    )
+                  }
+                >
+                  <div style={styles.cardIcon}>📦</div>
+                  <div style={styles.cardTitle}>Inventory Check</div>
+                  <div style={styles.cardSubtitle}>Stock levels & alerts</div>
+                </button>
+
+                <button
+                  style={styles.suggestionCard}
+                  className="suggestion-card"
+                  onClick={() =>
+                    setInputMessage("Generate a PDF executive summary report")
+                  }
+                >
+                  <div style={styles.cardIcon}>📄</div>
+                  <div style={styles.cardTitle}>PDF Report</div>
+                  <div style={styles.cardSubtitle}>Executive summary</div>
+                </button>
+              </div>
             </div>
           ) : (
             <div style={styles.messagesContainer}>
@@ -1034,6 +1350,58 @@ const styles = {
     marginBottom: "16px",
     fontSize: "14px",
     textAlign: "center",
+  },
+
+  // Existing styles ichiga qo'shing
+  biAgentIcon: {
+    fontSize: "64px",
+    marginBottom: "16px",
+  },
+  biAgentTitle: {
+    fontSize: "32px",
+    fontWeight: "700",
+    marginBottom: "12px",
+    color: "#fff",
+  },
+  biAgentSubtitle: {
+    fontSize: "16px",
+    color: "#9ca3af",
+    marginBottom: "40px",
+    maxWidth: "600px",
+    lineHeight: "1.6",
+  },
+  suggestionCards: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, 1fr)",
+    gap: "16px",
+    maxWidth: "700px",
+    width: "100%",
+  },
+  suggestionCard: {
+    backgroundColor: "#1a1f2e",
+    border: "1px solid #2d3748",
+    borderRadius: "12px",
+    padding: "20px",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    textAlign: "left",
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    color: "#fff",
+  },
+  cardIcon: {
+    fontSize: "28px",
+    marginBottom: "4px",
+  },
+  cardTitle: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#fff",
+  },
+  cardSubtitle: {
+    fontSize: "13px",
+    color: "#9ca3af",
   },
 };
 

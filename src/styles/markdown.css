@@ -80,7 +80,7 @@ body {
   background-color: #0f1419;
   padding: 3px 8px;
   border-radius: 4px;
-  font-family: 'Courier New', Consolas, Monaco, monospace;
+  font-family: "Courier New", Consolas, Monaco, monospace;
   font-size: 13px;
   color: #a5d6ff;
   border: 1px solid #2d3748;
@@ -256,7 +256,9 @@ body {
 
 /* Typing Animation */
 @keyframes typing {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     opacity: 0.3;
     transform: scale(0.8);
   }
@@ -312,7 +314,7 @@ body {
   .markdown-content table {
     font-size: 12px;
   }
-  
+
   .markdown-content th,
   .markdown-content td {
     padding: 10px 12px !important;
@@ -336,7 +338,6 @@ body {
   margin: 12px 0;
 }
 
-
 /* Chart specific styles */
 .markdown-content img[alt*="Chart"],
 .markdown-content img[alt*="chart"],
@@ -344,4 +345,9 @@ body {
   background-color: #ffffff;
   padding: 8px;
   border-radius: 12px;
+}
+.suggestion-card:hover {
+  background-color: #2d3748 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
