@@ -1,7 +1,7 @@
 import React from 'react';
 
 const FileAttachment = ({ files }) => {
-  const API_BASE_URL = 'https://localagent.diyarbek.uz';
+  const API_BASE_URL = 'https://biagent.diyarbek.uz';
   
   // Convert file paths array to proper URLs
   const getFileUrl = (filePath) => {

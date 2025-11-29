@@ -83,3 +83,12 @@ body {
 [data-color-mode="dark"] .wmde-markdown hr {
   background-color: #2d3748 !important;
 }
+/* UserSection dropdown hover effect */
+button[style*="dropdownItem"]:hover,
+.user-dropdown-item:hover {
+  background-color: #2d3748 !important;
+}
+
+button[style*="userButton"]:hover {
+  background-color: rgba(45, 55, 72, 0.3) !important;
+}

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://localagent.diyarbek.uz';
+const API_BASE_URL = 'https://biagent.diyarbek.uz';
 
 class ApiService {
   constructor() {

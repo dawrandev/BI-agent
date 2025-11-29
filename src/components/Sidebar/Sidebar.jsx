@@ -12,6 +12,7 @@ const Sidebar = ({
   onDeleteSession,
   onLogin,
   onLogout,
+  onSettings,  // ✅ YANGI prop
   isOpen = true
 }) => {
   return (
@@ -45,11 +46,13 @@ const Sidebar = ({
           />
         </div>
 
+        {/* ✅ onSettings prop ni qo'shing */}
         <UserSection
           isLoggedIn={isLoggedIn}
           username={username}
           onLogin={onLogin}
           onLogout={onLogout}
+          onSettings={onSettings}  // ✅ YANGI
         />
       </div>
     </div>

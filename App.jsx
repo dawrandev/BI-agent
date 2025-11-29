@@ -7,6 +7,7 @@ import LoginModal from './components/Auth/LoginModal';
 import ThinkingIndicator from './components/Chat/ThinkingIndicator';
 import ApiService from './services/api';
 import './styles/markdown.css';
+console.log("🟢 APP.JSX ISHLAYABDI");
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
