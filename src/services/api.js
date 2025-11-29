@@ -53,7 +53,12 @@ class ApiService {
     return response.json();
   }
 
-  async createSession(token, title = 'New Chat') {
+ async createSession(token, title = 'New Chat') {
+  try {
+    console.log('🔵 Creating session...');
+    console.log('Token:', token ? 'exists' : 'missing');
+    console.log('Title:', title);
+
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/`, {
       method: 'POST',
       headers: {
@@ -63,12 +68,28 @@ class ApiService {
       body: JSON.stringify({ title })
     });
 
+    console.log('Response status:', response.status);
+
     if (!response.ok) {
-      throw new Error('Session yaratishda xatolik');
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.detail || errorData.message || 'Session yaratib bo\'lmadi');
+      } catch {
+        throw new Error(`Server xatolik: ${response.status}`);
+      }
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('✅ Session created:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Create session error:', error);
+    throw error;
   }
+}
 
   async deleteSession(sessionId, token) {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/${sessionId}/`, {

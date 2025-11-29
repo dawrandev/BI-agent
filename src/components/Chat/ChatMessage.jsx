@@ -21,7 +21,7 @@ const ChatMessage = ({ message }) => {
     );
   }
 
-  // AI message - LEFT aligned, avatar on left
+
   return (
     <div
       style={styles.aiMessageWrapper}

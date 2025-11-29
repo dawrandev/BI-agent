@@ -232,30 +232,13 @@ function App() {
     }
   };
 
-  // Yangi session yaratish
-  const createNewSession = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/sessions/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: `New Chat ${sessions.length + 1}`,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Session yaratishda xatolik");
-
-      const newSession = await response.json();
-      setSessions([newSession, ...sessions]);
-      setCurrentSessionId(newSession.id);
-      setMessages([]);
-    } catch (err) {
-      console.error("Create session error:", err);
-      setError("Yangi chat ochishda xatolik");
-    }
+  // Yangi session yaratish - FAQAT STATE TOZALASH
+  const createNewSession = () => {
+    setCurrentSessionId(null);
+    setMessages([]);
+    setStreamingContent("");
+    setThinkingSteps([]);
+    setError("");
   };
 
   // Sessionni tanlash
@@ -344,11 +327,31 @@ function App() {
 
     try {
       let accumulatedContent = "";
+      let effectiveSessionId = currentSessionId;
+
+      // AGAR currentSessionId null bo'lsa, YANGI SESSION YARATAMIZ
+      if (!currentSessionId) {
+        try {
+          const newSession = await ApiService.createSession(
+            token,
+            `New Chat ${sessions.length + 1}`
+          );
+          effectiveSessionId = newSession.id;
+          setCurrentSessionId(newSession.id);
+          setSessions([newSession, ...sessions]);
+          console.log("✅ Yangi session yaratildi:", newSession.id);
+        } catch (err) {
+          console.error("Yangi session yaratishda xatolik:", err);
+          setError("Yangi chat yaratib bo'lmadi");
+          setIsTyping(false);
+          setIsStreaming(false);
+          return;
+        }
+      }
 
       // Streaming callback handler
       const handleChunk = (chunk) => {
         if (chunk.type === "content") {
-          // Accumulate streaming content for real-time display
           accumulatedContent += chunk.content;
           setStreamingContent(accumulatedContent);
           console.log("📨 Streaming chunk:", chunk.content);
@@ -400,24 +403,23 @@ function App() {
         }
       };
 
-      // Call API with streaming callback
+      // Call API with streaming callback - EFFECTIVE SESSION ID ishlatamiz
       const data = await ApiService.sendMessage(
         messageText,
-        currentSessionId,
+        effectiveSessionId,
         token,
         handleChunk
       );
 
       console.log("✅ API Response complete:", data);
 
-      if (data.session_id && data.session_id !== currentSessionId) {
+      // Agar backend yangi session_id qaytarsa
+      if (data.session_id && data.session_id !== effectiveSessionId) {
         setCurrentSessionId(data.session_id);
         loadSessions(token);
       }
 
       const filesFromApi = data.files || data.file_paths || [];
-
-      // Use accumulated streaming content, or fall back to response field
       const finalContent = accumulatedContent || data.response || "";
 
       const aiMessage = {
@@ -429,14 +431,12 @@ function App() {
         file_paths: data.file_paths || filesFromApi,
       };
 
-      // Replace temporary streaming message with final message
       setMessages((prev) => [...prev, aiMessage]);
       setStreamingContent("");
       setThinkingSteps([]);
     } catch (err) {
       console.error("Send message error:", err);
       setError("Xabar yuborishda xatolik");
-      // Keep the streaming content so user can see what was received before error
     } finally {
       setIsTyping(false);
       setIsStreaming(false);
@@ -1268,8 +1268,6 @@ const styles = {
     fontSize: "14px",
     textAlign: "center",
   },
-
-  // Existing styles ichiga qo'shing
   biAgentIcon: {
     fontSize: "64px",
     marginBottom: "16px",
