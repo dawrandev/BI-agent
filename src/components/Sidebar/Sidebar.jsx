@@ -2,57 +2,72 @@ import React from 'react';
 import ChatHistory from './ChatHistory';
 import UserSection from './UserSection';
 
-const Sidebar = ({ 
-  isLoggedIn, 
-  username, 
-  sessions, 
-  currentSessionId, 
-  onNewChat, 
-  onSelectSession, 
+const Sidebar = ({
+  isLoggedIn,
+  username,
+  sessions,
+  currentSessionId,
+  onNewChat,
+  onSelectSession,
   onDeleteSession,
   onLogin,
-  onLogout 
+  onLogout,
+  isOpen = true
 }) => {
   return (
-    <div style={styles.sidebar}>
-      {/* Logo */}
-      <div style={styles.logo}>
-        <div style={styles.logoIcon}></div>
-        <span style={styles.logoText}>BI Agent</span>
-      </div>
+    <div style={{
+      ...styles.sidebar,
+      width: isOpen ? '280px' : '0px',
+      minWidth: isOpen ? '280px' : '0px',
+      padding: isOpen ? undefined : '0',
+      borderRight: isOpen ? '1px solid #2d3748' : 'none',
+      overflow: 'hidden'
+    }}>
+      <div style={styles.sidebarContent}>
+        {/* Logo */}
+        <div style={styles.logo}>
+          <div style={styles.logoIcon}></div>
+          <span style={styles.logoText}>BI Agent</span>
+        </div>
 
-      {/* Menu Items */}
-      <div style={styles.menu}>
-        <button style={styles.menuItem} onClick={onNewChat}>
-          <span style={styles.icon}>+</span>
-          <span>New Chat</span>
-        </button>
+        {/* Menu Items */}
+        <div style={styles.menu}>
+          <button style={styles.menuItem} onClick={onNewChat}>
+            <span style={styles.icon}>+</span>
+            <span>New Chat</span>
+          </button>
 
-        <ChatHistory
-          sessions={sessions}
-          currentSessionId={currentSessionId}
-          onSelectSession={onSelectSession}
-          onDeleteSession={onDeleteSession}
+          <ChatHistory
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            onSelectSession={onSelectSession}
+            onDeleteSession={onDeleteSession}
+          />
+        </div>
+
+        <UserSection
+          isLoggedIn={isLoggedIn}
+          username={username}
+          onLogin={onLogin}
+          onLogout={onLogout}
         />
       </div>
-
-      <UserSection
-        isLoggedIn={isLoggedIn}
-        username={username}
-        onLogin={onLogin}
-        onLogout={onLogout}
-      />
     </div>
   );
 };
 
 const styles = {
   sidebar: {
-    width: '280px',
     backgroundColor: '#1a1f2e',
-    borderRight: '1px solid #2d3748',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    transition: 'width 0.3s ease, min-width 0.3s ease'
+  },
+  sidebarContent: {
+    width: '280px',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%'
   },
   logo: {
     padding: '20px',
@@ -65,13 +80,15 @@ const styles = {
     width: '28px',
     height: '28px',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '6px'
+    borderRadius: '6px',
+    flexShrink: 0
   },
   logoText: {
     fontWeight: '700',
     fontSize: '18px',
     letterSpacing: '-0.5px',
-    color: '#fff'
+    color: '#fff',
+    whiteSpace: 'nowrap'
   },
   menu: {
     flex: 1,
@@ -92,7 +109,8 @@ const styles = {
     fontSize: '14px',
     marginBottom: '8px',
     fontWeight: '500',
-    transition: 'all 0.2s'
+    transition: 'all 0.2s',
+    whiteSpace: 'nowrap'
   },
   icon: {
     fontSize: '20px',

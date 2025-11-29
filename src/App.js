@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "./components/Sidebar/Sidebar";
-import Header from "./components/Layout/Header";
-import LoginModal from "./components/Auth/LoginModal";
 import ChatMessage from "./components/Chat/ChatMessage";
 import ThinkingIndicator from "./components/Chat/ThinkingIndicator";
+import MessageInput from "./components/Chat/MessageInput";
 import ApiService from "./services/api";
 import "./styles/markdown.css";
 
@@ -41,6 +40,7 @@ function App() {
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -443,12 +443,15 @@ function App() {
     }
   };
 
-  // Proper form submit handler — prevents event object being passed to sendMessage
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!inputMessage || !inputMessage.trim()) return;
-    sendMessage(inputMessage);
+  // Handler for MessageInput component
+  const handleSendMessage = (messageText) => {
+    if (!messageText || !messageText.trim()) return;
+    sendMessage(messageText);
     setInputMessage("");
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
   };
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
@@ -672,97 +675,41 @@ function App() {
       )}
 
       {/* Sidebar */}
-      <div style={styles.sidebar}>
-        {/* Logo */}
-        <div style={styles.logo}>
-          <div style={styles.logoIcon}></div>
-          <span style={styles.logoText}>BI Agent</span>
-        </div>
-
-        {/* Menu Items */}
-        <div style={styles.menu}>
-          <button
-            style={styles.menuItem}
-            onClick={
-              isLoggedIn ? createNewSession : () => setShowAuthModal(true)
-            }
-          >
-            <span style={styles.icon}>+</span>
-            <span>New Chat</span>
-          </button>
-          <button
-            style={styles.menuItem}
-            onClick={() => setShowConfigModal(true)}
-          >
-            <span style={styles.icon}>⚙️</span>
-            <span>Settings</span>
-          </button>
-
-          {/* Chat History */}
-          {isLoggedIn && sessions.length > 0 ? (
-            <div style={styles.chatHistory}>
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  style={{
-                    ...styles.chatHistoryItem,
-                    ...(currentSessionId === session.id
-                      ? styles.chatHistoryItemActive
-                      : {}),
-                  }}
-                  onClick={() => selectSession(session.id)}
-                >
-                  <span style={styles.chatHistoryText}>
-                    {session.title || "Untitled Chat"}
-                  </span>
-                  <button
-                    style={styles.deleteButton}
-                    onClick={(e) => deleteSession(session.id, e)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={styles.historyText}>
-              Please login to see your chat history
-            </div>
-          )}
-        </div>
-
-        {/* User Section */}
-        <div style={styles.userSection}>
-          {isLoggedIn ? (
-            <div style={styles.userButton}>
-              <div style={styles.userInfo}>
-                <div style={styles.avatar}>
-                  {username.substring(0, 2).toUpperCase()}
-                </div>
-                <span style={styles.userName}>{username}</span>
-              </div>
-              <button onClick={handleLogout} style={styles.logoutButton}>
-                Logout
-              </button>
-            </div>
-          ) : (
-            <button
-              style={styles.loginButton}
-              onClick={() => setShowAuthModal(true)}
-            >
-              Login
-            </button>
-          )}
-        </div>
-      </div>
+      <Sidebar
+        isLoggedIn={isLoggedIn}
+        username={username}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onNewChat={isLoggedIn ? createNewSession : () => setShowAuthModal(true)}
+        onSelectSession={(id) => selectSession(id)}
+        onDeleteSession={deleteSession}
+        onLogin={() => setShowAuthModal(true)}
+        onLogout={handleLogout}
+        isOpen={sidebarOpen}
+      />
 
       {/* Main Content */}
       <div style={styles.mainContent}>
         {/* Header */}
         <div style={styles.header}>
-          <span style={styles.headerText}>
-            {currentSession ? currentSession.title : "BI Agent"}
-          </span>
+          <div style={styles.headerLeft}>
+            <button onClick={toggleSidebar} style={styles.sidebarToggle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {sidebarOpen ? (
+                  <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+                ) : (
+                  <>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                  </>
+                )}
+              </svg>
+            </button>
+            <span style={styles.headerText}>
+              {currentSession ? currentSession.title : "BI Agent"}
+            </span>
+          </div>
           {isLoggedIn && (
             <div style={styles.statusBadge}>
               <div style={styles.statusDot}></div>
@@ -772,7 +719,10 @@ function App() {
         </div>
 
         {/* Chat Area */}
-        <div style={styles.chatArea}>
+        <div style={{
+          ...styles.chatArea,
+          ...(isLoggedIn && (!currentSessionId || messages.length === 0) ? styles.chatAreaCentered : {})
+        }}>
           {!isLoggedIn ? (
             <div style={styles.welcomeContainer}>
               <h1 style={styles.welcomeTitle}>Welcome to BI Agent</h1>
@@ -785,7 +735,7 @@ function App() {
               </button>
             </div>
           ) : !currentSessionId || messages.length === 0 ? (
-            <div style={styles.welcomeContainer}>
+            <div style={styles.emptyStateContainer}>
               <div style={styles.biAgentIcon}>📊</div>
               <h1 style={styles.biAgentTitle}>BI Agent Ready</h1>
               <p style={styles.biAgentSubtitle}>
@@ -847,6 +797,17 @@ function App() {
                   <div style={styles.cardSubtitle}>Executive summary</div>
                 </button>
               </div>
+
+              {/* Centered Input for empty state */}
+              <div style={styles.centeredInputWrapper}>
+                {error && <div style={styles.errorBar}>{error}</div>}
+                <MessageInput
+                  onSendMessage={handleSendMessage}
+                  disabled={isTyping}
+                  value={inputMessage}
+                  onChange={setInputMessage}
+                />
+              </div>
             </div>
           ) : (
             <div style={styles.messagesContainer}>
@@ -864,9 +825,9 @@ function App() {
 
               {/* Streaming content ko'rsatish */}
               {isStreaming && streamingContent && (
-                <div style={styles.aiMessageWrapper}>
-                  <div style={styles.aiAvatar}>AI</div>
-                  <div style={styles.aiMessage}>
+                <div style={styles.streamingWrapper}>
+                  <div style={styles.streamingAvatar}>AI</div>
+                  <div style={styles.streamingMessage}>
                     <div className="markdown-content">{streamingContent}</div>
                   </div>
                 </div>
@@ -874,9 +835,9 @@ function App() {
 
               {/* Oddiy typing indicator */}
               {isTyping && !isStreaming && (
-                <div style={styles.aiMessageWrapper}>
-                  <div style={styles.aiAvatar}>AI</div>
-                  <div style={styles.aiMessage}>
+                <div style={styles.streamingWrapper}>
+                  <div style={styles.streamingAvatar}>AI</div>
+                  <div style={styles.streamingMessage}>
                     <div style={styles.typingIndicator}>
                       <span style={styles.typingDot}></span>
                       <span style={styles.typingDot}></span>
@@ -891,27 +852,16 @@ function App() {
           )}
         </div>
 
-        {/* Input Area */}
-        {isLoggedIn && (
+        {/* Input Area - only show when there are messages */}
+        {isLoggedIn && messages.length > 0 && (
           <div style={styles.inputArea}>
             {error && <div style={styles.errorBar}>{error}</div>}
-            <form onSubmit={handleSubmit} style={styles.inputForm}>
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Ask about your business data..."
-                style={styles.input}
-                disabled={isTyping}
-              />
-              <button
-                type="submit"
-                style={styles.sendButton}
-                disabled={isTyping}
-              >
-                <span style={styles.sendIcon}>→</span>
-              </button>
-            </form>
+            <MessageInput
+              onSendMessage={handleSendMessage}
+              disabled={isTyping}
+              value={inputMessage}
+              onChange={setInputMessage}
+            />
           </div>
         )}
       </div>
@@ -1089,6 +1039,24 @@ const styles = {
     padding: "0 32px",
     backgroundColor: "#1a1f2e",
   },
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+  },
+  sidebarToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "36px",
+    height: "36px",
+    borderRadius: "8px",
+    border: "1px solid #2d3748",
+    backgroundColor: "transparent",
+    color: "#9ca3af",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  },
   headerText: {
     fontWeight: "600",
     fontSize: "16px",
@@ -1118,6 +1086,10 @@ const styles = {
     padding: "24px",
     backgroundColor: "#0f1419",
   },
+  chatAreaCentered: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   welcomeContainer: {
     flex: 1,
     display: "flex",
@@ -1125,6 +1097,18 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
+  },
+  emptyStateContainer: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    width: "100%",
+    maxWidth: "800px",
+  },
+  centeredInputWrapper: {
+    width: "100%",
+    marginTop: "32px",
   },
   welcomeTitle: {
     fontSize: "32px",
@@ -1153,74 +1137,38 @@ const styles = {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
-    maxWidth: "900px",
+    gap: "24px",
+    maxWidth: "768px",
     margin: "0 auto",
     width: "100%",
+    padding: "0 24px",
   },
-  userMessageWrapper: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    alignItems: "flex-start",
-  },
-  aiMessageWrapper: {
+  streamingWrapper: {
     display: "flex",
     justifyContent: "flex-start",
     gap: "12px",
     alignItems: "flex-start",
+    paddingBottom: "24px",
   },
-  userMessage: {
-    maxWidth: "65%",
-    padding: "14px 18px",
-    borderRadius: "18px",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    fontSize: "15px",
-    lineHeight: "1.5",
-  },
-  aiMessage: {
-    maxWidth: "80%",
-    padding: "16px 20px",
-    borderRadius: "18px",
-    backgroundColor: "#1a1f2e",
-    border: "1px solid #2d3748",
-    color: "#e2e8f0",
-    fontSize: "15px",
-    lineHeight: "1.6",
-  },
-  aiAvatar: {
-    width: "36px",
-    height: "36px",
-    minWidth: "36px",
+  streamingAvatar: {
+    width: "28px",
+    height: "28px",
+    minWidth: "28px",
     borderRadius: "50%",
     background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "13px",
+    fontSize: "11px",
     fontWeight: "700",
-    marginTop: "4px",
+    marginTop: "2px",
+    color: "#fff",
   },
-  userAvatar: {
-    width: "36px",
-    height: "36px",
-    minWidth: "36px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "13px",
-    fontWeight: "700",
-    marginTop: "4px",
-  },
-  messageText: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
-  markdownContent: {
+  streamingMessage: {
+    flex: 1,
+    padding: "4px 0",
     color: "#e2e8f0",
+    fontSize: "15px",
     lineHeight: "1.7",
   },
   typingIndicator: {
@@ -1237,39 +1185,8 @@ const styles = {
     animation: "typing 1.4s infinite",
   },
   inputArea: {
-    padding: "24px 32px",
     borderTop: "1px solid #2d3748",
-    backgroundColor: "#1a1f2e",
-  },
-  inputForm: {
-    display: "flex",
-    gap: "12px",
-    maxWidth: "900px",
-    margin: "0 auto",
-  },
-  input: {
-    flex: 1,
-    padding: "16px 20px",
-    borderRadius: "12px",
-    border: "1px solid #2d3748",
     backgroundColor: "#0f1419",
-    color: "#fff",
-    fontSize: "15px",
-    outline: "none",
-  },
-  sendButton: {
-    padding: "16px 28px",
-    borderRadius: "12px",
-    border: "none",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: "20px",
-    fontWeight: "bold",
-    transition: "transform 0.2s",
-  },
-  sendIcon: {
-    display: "inline-block",
   },
   modalOverlay: {
     position: "fixed",

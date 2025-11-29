@@ -1,133 +1,145 @@
-import React from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import React, { useState } from 'react';
+import MarkdownPreview from '@uiw/react-markdown-preview';
 import FileAttachment from './FileAttachment';
+import CopyButton from './CopyButton';
 
 const ChatMessage = ({ message }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const isUser = message.role === 'user';
-  const API_BASE_URL = 'https://localagent.diyarbek.uz';
 
-  const processImageUrl = (url) => {
-    if (url.startsWith('http')) return url;
-    const cleanPath = url.startsWith('/') ? url.substring(1) : url;
-    return `${API_BASE_URL}/${cleanPath}`;
-  };
+  if (isUser) {
+    // User message - RIGHT aligned, avatar on right
+    return (
+      <div style={styles.userMessageWrapper}>
+        <div style={styles.userMessageContainer}>
+          <div style={styles.userMessage}>
+            <div style={styles.messageText}>{message.content}</div>
+          </div>
+        </div>
+        <div style={styles.userAvatar}>U</div>
+      </div>
+    );
+  }
 
+  // AI message - LEFT aligned, avatar on left
   return (
-    <div style={isUser ? styles.userMessageWrapper : styles.aiMessageWrapper}>
-      {!isUser && <div style={styles.aiAvatar}>AI</div>}
-
-      <div style={isUser ? styles.userMessage : styles.aiMessage}>
-        {isUser ? (
-          <div style={styles.messageText}>{message.content}</div>
-        ) : (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              img: ({node, ...props}) => {
-                const imageUrl = processImageUrl(props.src);
-                return (
-                  <img
-                    {...props}
-                    src={imageUrl}
-                    alt={props.alt || 'Image'}
-                    style={styles.chartImage}
-                  />
-                );
-              },
-              a: ({node, ...props}) => (
-                <a {...props} target="_blank" rel="noopener noreferrer" />
-              )
+    <div
+      style={styles.aiMessageWrapper}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={styles.aiAvatar}>AI</div>
+      <div style={styles.aiMessageContainer}>
+        <div style={styles.aiMessage} data-color-mode="dark">
+          <MarkdownPreview
+            source={message.content}
+            style={styles.markdownPreview}
+            wrapperElement={{
+              "data-color-mode": "dark"
             }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        )}
+          />
+        </div>
 
         {message.file_paths && message.file_paths.length > 0 && (
           <FileAttachment files={message.file_paths} />
         )}
-      </div>
 
-      {isUser && <div style={styles.userAvatar}>U</div>}
+        <div style={{
+          ...styles.copyButtonWrapper,
+          opacity: isHovered ? 1 : 0,
+          pointerEvents: isHovered ? 'auto' : 'none'
+        }}>
+          <CopyButton text={message.content} />
+        </div>
+      </div>
     </div>
   );
 };
 
 const styles = {
+  // User message - RIGHT aligned
   userMessageWrapper: {
     display: 'flex',
     justifyContent: 'flex-end',
     gap: '12px',
-    alignItems: 'flex-start'
+    alignItems: 'flex-start',
+    paddingBottom: '24px'
   },
+  userMessageContainer: {
+    maxWidth: '70%'
+  },
+  userMessage: {
+    padding: '12px 16px',
+    backgroundColor: '#2d3748',
+    borderRadius: '18px',
+    borderBottomRightRadius: '4px',
+    color: '#fff',
+    fontSize: '15px',
+    lineHeight: '1.6'
+  },
+  userAvatar: {
+    width: '28px',
+    height: '28px',
+    minWidth: '28px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: '700',
+    marginTop: '2px',
+    color: '#fff'
+  },
+
+  // AI message - LEFT aligned
   aiMessageWrapper: {
     display: 'flex',
     justifyContent: 'flex-start',
     gap: '12px',
-    alignItems: 'flex-start'
+    alignItems: 'flex-start',
+    paddingBottom: '24px'
   },
-  userMessage: {
-    maxWidth: '65%',
-    padding: '14px 18px',
-    borderRadius: '18px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: '#fff',
-    fontSize: '15px',
-    lineHeight: '1.5'
+  aiMessageContainer: {
+    flex: 1,
+    maxWidth: '100%',
+    overflow: 'hidden'
   },
   aiMessage: {
-    maxWidth: '80%',
-    padding: '16px 20px',
-    borderRadius: '18px',
-    backgroundColor: '#1a1f2e',
-    border: '1px solid #2d3748',
+    padding: '4px 0',
     color: '#e2e8f0',
     fontSize: '15px',
-    lineHeight: '1.6'
+    lineHeight: '1.7'
   },
   aiAvatar: {
-    width: '36px',
-    height: '36px',
-    minWidth: '36px',
+    width: '28px',
+    height: '28px',
+    minWidth: '28px',
     borderRadius: '50%',
     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '13px',
+    fontSize: '11px',
     fontWeight: '700',
-    marginTop: '4px',
+    marginTop: '2px',
     color: '#fff'
   },
-  userAvatar: {
-    width: '36px',
-    height: '36px',
-    minWidth: '36px',
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '13px',
-    fontWeight: '700',
-    marginTop: '4px',
-    color: '#fff'
-  },
+
   messageText: {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word'
   },
-  chartImage: {
-    width: '100%',
-    maxWidth: '100%',
-    height: 'auto',
-    borderRadius: '12px',
-    border: '1px solid #2d3748',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-    backgroundColor: '#fff',
-    display: 'block',
-    margin: '16px 0'
+  markdownPreview: {
+    backgroundColor: 'transparent',
+    color: '#e2e8f0',
+    fontSize: '15px',
+    lineHeight: '1.7',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  },
+  copyButtonWrapper: {
+    marginTop: '8px',
+    transition: 'opacity 0.2s'
   }
 };
 

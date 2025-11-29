@@ -10,250 +10,6 @@ body {
   overflow: hidden;
 }
 
-/* Markdown Content Styles */
-.markdown-content {
-  color: #e2e8f0;
-  line-height: 1.7;
-}
-
-.markdown-content h1 {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 20px 0 14px 0;
-  color: #fff;
-  border-bottom: 2px solid #2d3748;
-  padding-bottom: 8px;
-}
-
-.markdown-content h2 {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 18px 0 12px 0;
-  color: #fff;
-}
-
-.markdown-content h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 16px 0 10px 0;
-  color: #fff;
-}
-
-.markdown-content h4 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 14px 0 8px 0;
-  color: #cbd5e0;
-}
-
-.markdown-content p {
-  margin: 10px 0;
-  line-height: 1.7;
-}
-
-.markdown-content ul,
-.markdown-content ol {
-  margin: 12px 0;
-  padding-left: 28px;
-}
-
-.markdown-content li {
-  margin: 8px 0;
-  line-height: 1.6;
-}
-
-.markdown-content li p {
-  margin: 4px 0;
-}
-
-.markdown-content strong {
-  font-weight: 700;
-  color: #fff;
-}
-
-.markdown-content em {
-  font-style: italic;
-  color: #a0aec0;
-}
-
-.markdown-content code {
-  background-color: #0f1419;
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-family: "Courier New", Consolas, Monaco, monospace;
-  font-size: 13px;
-  color: #a5d6ff;
-  border: 1px solid #2d3748;
-}
-
-.markdown-content pre {
-  background-color: #0f1419;
-  padding: 16px;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 16px 0;
-  border: 1px solid #2d3748;
-}
-
-.markdown-content pre code {
-  background: none;
-  padding: 0;
-  border: none;
-  font-size: 14px;
-}
-
-/* ============================================
-   TABLE STYLES - MAIN SECTION
-   ============================================ */
-
-.markdown-content table {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: 100%;
-  margin: 24px 0;
-  font-size: 14px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  background-color: #1a1f2e;
-  border: 1px solid #2d3748;
-}
-
-/* Table Header */
-.markdown-content thead {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.markdown-content thead tr {
-  background: transparent;
-}
-
-.markdown-content th {
-  padding: 16px 20px !important;
-  text-align: left !important;
-  font-weight: 700 !important;
-  color: #ffffff !important;
-  font-size: 14px !important;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  border: 1px solid #4a5568 !important;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.3) !important;
-  background: transparent !important;
-}
-
-.markdown-content th:first-child {
-  border-top-left-radius: 12px;
-}
-
-.markdown-content th:last-child {
-  border-top-right-radius: 12px;
-}
-
-/* Table Body */
-.markdown-content tbody {
-  background-color: #1a1f2e;
-}
-
-.markdown-content tbody tr {
-  border-bottom: 1px solid #2d3748;
-  transition: all 0.2s ease;
-}
-
-.markdown-content tbody tr:last-child {
-  border-bottom: none;
-}
-
-.markdown-content tbody tr:hover {
-  background-color: rgba(102, 126, 234, 0.12);
-  transform: scale(1.01);
-}
-
-.markdown-content td {
-  padding: 14px 20px !important;
-  color: #cbd5e0 !important;
-  font-size: 14px !important;
-  border: 1px solid #4a5568 !important;
-  border-bottom: 1px solid #4a5568 !important;
-}
-
-.markdown-content tbody tr:last-child td {
-  border-bottom: none !important;
-}
-
-.markdown-content td:first-child {
-  font-weight: 500;
-}
-
-/* Strong text in table cells */
-.markdown-content td strong {
-  color: #ffffff !important;
-  font-weight: 700 !important;
-}
-
-/* Alternating row colors */
-.markdown-content tbody tr:nth-child(odd) {
-  background-color: #1a1f2e;
-}
-
-.markdown-content tbody tr:nth-child(even) {
-  background-color: #151a26;
-}
-
-.markdown-content tbody tr:nth-child(odd):hover {
-  background-color: rgba(102, 126, 234, 0.12);
-}
-
-.markdown-content tbody tr:nth-child(even):hover {
-  background-color: rgba(102, 126, 234, 0.15);
-}
-
-/* ============================================
-   END TABLE STYLES
-   ============================================ */
-
-/* Link Styles */
-.markdown-content a {
-  color: #667eea;
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-  border-bottom: 1px solid transparent;
-}
-
-.markdown-content a:hover {
-  color: #764ba2;
-  border-bottom: 1px solid #764ba2;
-}
-
-/* Blockquote Styles */
-.markdown-content blockquote {
-  border-left: 4px solid #667eea;
-  padding-left: 20px;
-  margin: 16px 0;
-  color: #a0aec0;
-  font-style: italic;
-  background-color: rgba(102, 126, 234, 0.05);
-  padding: 12px 20px;
-  border-radius: 4px;
-}
-
-/* HR Styles */
-.markdown-content hr {
-  border: none;
-  height: 2px;
-  background: linear-gradient(to right, transparent, #2d3748, transparent);
-  margin: 24px 0;
-}
-
-/* Image Styles */
-.markdown-content img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 16px 0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
 /* Typing Animation */
 @keyframes typing {
   0%,
@@ -268,86 +24,62 @@ body {
   }
 }
 
-/* Streaming Pulse Animation */
-@keyframes streamingPulse {
-  0% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.5;
-  }
-}
-
-/* Streaming Content Indicator */
-.markdown-content .streaming-indicator {
-  animation: streamingPulse 1.5s ease-in-out infinite;
-  color: #667eea;
-  font-weight: 600;
-  font-style: italic;
-}
-
-/* Scrollbar Styles */
-.markdown-content::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.markdown-content::-webkit-scrollbar-track {
-  background: #0f1419;
-  border-radius: 4px;
-}
-
-.markdown-content::-webkit-scrollbar-thumb {
-  background: #2d3748;
-  border-radius: 4px;
-}
-
-.markdown-content::-webkit-scrollbar-thumb:hover {
-  background: #4a5568;
-}
-
-/* Responsive Table */
-@media screen and (max-width: 768px) {
-  .markdown-content table {
-    font-size: 12px;
-  }
-
-  .markdown-content th,
-  .markdown-content td {
-    padding: 10px 12px !important;
-  }
-}
-
-/* Image Styles */
-.markdown-content img {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  border-radius: 12px;
-  margin: 16px 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  border: 1px solid #2d3748;
-  background-color: #fff;
-  display: block;
-}
-
-.markdown-content p img {
-  margin: 12px 0;
-}
-
-/* Chart specific styles */
-.markdown-content img[alt*="Chart"],
-.markdown-content img[alt*="chart"],
-.markdown-content img[src*="chart"] {
-  background-color: #ffffff;
-  padding: 8px;
-  border-radius: 12px;
-}
+/* Suggestion Card Hover */
 .suggestion-card:hover {
   background-color: #2d3748 !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Dark mode overrides for react-markdown-preview */
+[data-color-mode="dark"] .wmde-markdown {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown pre {
+  background-color: #1a1f2e !important;
+  border: 1px solid #2d3748 !important;
+  border-radius: 8px !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown code {
+  background-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown table {
+  border-color: #2d3748 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown th,
+[data-color-mode="dark"] .wmde-markdown td {
+  border-color: #2d3748 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown th {
+  background-color: #1a1f2e !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown tr:nth-child(even) {
+  background-color: #151a26 !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown a {
+  color: #667eea !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown blockquote {
+  border-left-color: #667eea !important;
+  background-color: rgba(102, 126, 234, 0.1) !important;
+}
+
+[data-color-mode="dark"] .wmde-markdown img {
+  border-radius: 8px;
+  border: 1px solid #2d3748;
+  background-color: #fff;
+}
+
+[data-color-mode="dark"] .wmde-markdown hr {
+  background-color: #2d3748 !important;
 }
