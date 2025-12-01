@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { BrowserRouter, Routes, Route, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "./components/Sidebar/Sidebar";
 import ChatMessage from "./components/Chat/ChatMessage";
 import ThinkingIndicator from "./components/Chat/ThinkingIndicator";
@@ -6,8 +7,7 @@ import MessageInput from "./components/Chat/MessageInput";
 import ApiService from "./services/api";
 import "./styles/markdown.css";
 
-
-const API_BASE_URL = "https://biagent.diyarbek.uz";
+const API_BASE_URL = "https://localagent.diyarbek.uz";
 
 const initialConfigFormState = {
   odoo_url: "",
@@ -19,7 +19,11 @@ const initialConfigFormState = {
   is_active: true,
   auto_start: false,
 };
-function App() {
+
+function ChatApp() {
+  const navigate = useNavigate();
+  const { sessionId: urlSessionId } = useParams();
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +45,7 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -51,7 +56,7 @@ function App() {
     scrollToBottom();
   }, [messages, streamingContent, thinkingSteps]);
 
-  // Token ni localStorage dan yuklash
+  // Load token from localStorage
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedUsername = localStorage.getItem("username");
@@ -59,19 +64,42 @@ function App() {
       setToken(savedToken);
       setUsername(savedUsername);
       setIsLoggedIn(true);
-      loadSessions(savedToken);
-      loadConfig(savedToken);
     }
+    setInitialLoadDone(true);
   }, []);
 
- // Login qilish
+  // Load sessions when logged in
+  useEffect(() => {
+    if (isLoggedIn && token && initialLoadDone) {
+      loadSessions(token);
+      loadConfig(token);
+    }
+  }, [isLoggedIn, token, initialLoadDone]);
+
+  // Handle URL session ID changes
+  useEffect(() => {
+    if (initialLoadDone && isLoggedIn && token) {
+      if (urlSessionId) {
+        // URL has a session ID - load that session
+        if (urlSessionId !== currentSessionId) {
+          selectSession(urlSessionId, token);
+        }
+      } else if (currentSessionId) {
+        // No URL session but we have a current session - clear it for new chat
+        setCurrentSessionId(null);
+        setMessages([]);
+        setThinkingSteps([]);
+        setStreamingContent("");
+      }
+    }
+  }, [urlSessionId, initialLoadDone, isLoggedIn, token]);
+
+  // Login
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      console.log("Attempting login to:", `${API_BASE_URL}/api/v1/token/`);
-      
       const response = await fetch(`${API_BASE_URL}/api/v1/token/`, {
         method: "POST",
         headers: {
@@ -82,8 +110,6 @@ function App() {
           password: password,
         }),
       });
-
-      console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -102,8 +128,6 @@ function App() {
       loadSessions(data.access);
       loadConfig(data.access);
     } catch (err) {
-      console.error("Login error details:", err);
-      
       if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
         setError("Backend serverga ulanib bo'lmadi. Server ishlab turibdimi tekshiring.");
       } else {
@@ -112,7 +136,7 @@ function App() {
     }
   };
 
-  // Register qilish
+  // Register
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
@@ -159,10 +183,13 @@ function App() {
     setConfig(null);
     setConfigForm(initialConfigFormState);
     setShowConfigModal(false);
+    setThinkingSteps([]);
+    setStreamingContent("");
     localStorage.clear();
+    navigate('/');
   };
 
-  // Sessiyalarni yuklash
+  // Load sessions
   const loadSessions = async (authToken) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/sessions/`, {
@@ -175,10 +202,6 @@ function App() {
 
       const data = await response.json();
       setSessions(data);
-
-      if (data.length > 0 && !currentSessionId) {
-        selectSession(data[0].id, authToken);
-      }
     } catch (err) {
       console.error("Load sessions error:", err);
     }
@@ -242,17 +265,21 @@ function App() {
     }
   };
 
-  // Yangi session yaratish
- const createNewSession = () => {
-  setCurrentSessionId(null);
-  setMessages([]);
-  setStreamingContent("");
-  setThinkingSteps([]);
-  setError("");
-};
-  // Sessionni tanlash
+  // New session
+  const createNewSession = () => {
+    setCurrentSessionId(null);
+    setMessages([]);
+    setStreamingContent("");
+    setThinkingSteps([]);
+    setError("");
+    navigate('/');
+  };
+
+  // Select session
   const selectSession = async (sessionId, authToken) => {
     setCurrentSessionId(sessionId);
+    setThinkingSteps([]);
+    setStreamingContent("");
 
     try {
       const response = await fetch(
@@ -273,16 +300,22 @@ function App() {
           ...msg,
           files,
           file_paths: msg.file_paths || files,
+          thinkingSteps: msg.thinking_steps || [],
         };
       });
       setMessages(normalizedMessages);
+
+      // Update URL if not already there
+      if (window.location.pathname !== `/c/${sessionId}`) {
+        navigate(`/c/${sessionId}`, { replace: true });
+      }
     } catch (err) {
       console.error("Select session error:", err);
       setMessages([]);
     }
   };
 
-  // Sessionni o'chirish
+  // Delete session
   const deleteSession = async (sessionId, e) => {
     e.stopPropagation();
 
@@ -303,12 +336,9 @@ function App() {
       setSessions(updatedSessions);
 
       if (currentSessionId === sessionId) {
-        if (updatedSessions.length > 0) {
-          selectSession(updatedSessions[0].id);
-        } else {
-          setCurrentSessionId(null);
-          setMessages([]);
-        }
+        setCurrentSessionId(null);
+        setMessages([]);
+        navigate('/');
       }
     } catch (err) {
       console.error("Delete session error:", err);
@@ -316,132 +346,134 @@ function App() {
     }
   };
 
-// Xabar yuborish with SSE streaming
-const sendMessage = async (messageText) => {
-  if (!messageText.trim()) return;
+  // Send message with SSE streaming
+  const sendMessage = async (messageText) => {
+    if (!messageText.trim()) return;
 
-  const userMessage = {
-    id: Date.now(),
-    role: "user",
-    content: messageText,
-    created_at: new Date().toISOString(),
-  };
-
-  setMessages((prev) => [...prev, userMessage]);
-  setIsTyping(true);
-  setIsStreaming(true);
-  setStreamingContent("");
-  setThinkingSteps([]);
-  setError("");
-
-  try {
-    // ✅ YANGI: Agar session yo'q bo'lsa, avval session yaratamiz
-    let sessionToUse = currentSessionId;
-    
-    if (!sessionToUse) {
-      console.log('🔵 No session exists, creating new session...');
-      const newSession = await ApiService.createSession(token, 'New Chat');
-      sessionToUse = newSession.id;
-      setCurrentSessionId(newSession.id);
-      setSessions(prev => [newSession, ...prev]);
-      console.log('✅ Session created:', sessionToUse);
-    }
-
-    let accumulatedContent = "";
-
-    // Streaming callback handler
-    const handleChunk = (chunk) => {
-      if (chunk.type === "content") {
-        accumulatedContent += chunk.content;
-        setStreamingContent(accumulatedContent);
-        console.log("📨 Streaming chunk:", chunk.content);
-      } else if (chunk.type === "thinking") {
-        setThinkingSteps((prev) => {
-          const existingIndex =
-            chunk.stepNumber != null
-              ? prev.findIndex((step) => step.stepNumber === chunk.stepNumber)
-              : -1;
-
-          if (existingIndex !== -1) {
-            const updated = [...prev];
-            updated[existingIndex] = {
-              ...updated[existingIndex],
-              text:
-                chunk.step || chunk.thinking || updated[existingIndex].text,
-            };
-            return updated;
-          }
-
-          const prevCompleted =
-            prev.length > 0
-              ? prev.map((step, idx) =>
-                  idx === prev.length - 1
-                    ? { ...step, completed: true }
-                    : step
-                )
-              : prev;
-
-          const nextStepNumber = chunk.stepNumber || prevCompleted.length + 1;
-
-          return [
-            ...prevCompleted,
-            {
-              text: chunk.step || chunk.thinking || "Processing...",
-              completed: false,
-              stepNumber: nextStepNumber,
-            },
-          ];
-        });
-        console.log("🧠 Thinking step:", chunk.step || chunk.thinking);
-      } else if (chunk.type === "complete") {
-        setThinkingSteps((prev) =>
-          prev.map((step) => ({ ...step, completed: true }))
-        );
-        console.log("✅ Analysis complete");
-      } else if (chunk.type === "files") {
-        console.log("📎 Files received:", chunk.files);
-      }
-    };
-
-    // ✅ sessionToUse ni ishlatamiz (currentSessionId emas)
-    const data = await ApiService.sendMessage(
-      messageText,
-      sessionToUse,
-      token,
-      handleChunk
-    );
-
-    console.log("✅ API Response complete:", data);
-
-    // ✅ Session yangilandi bo'lsa, state'ni update qilamiz
-    if (data.session_id && data.session_id !== sessionToUse) {
-      setCurrentSessionId(data.session_id);
-      loadSessions(token);
-    }
-
-    const filesFromApi = data.files || data.file_paths || [];
-    const finalContent = accumulatedContent || data.response || "";
-
-    const aiMessage = {
-      id: Date.now() + 1,
-      role: "assistant",
-      content: finalContent,
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      content: messageText,
       created_at: new Date().toISOString(),
-      files: filesFromApi,
-      file_paths: data.file_paths || filesFromApi,
     };
 
-    setMessages((prev) => [...prev, aiMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    setIsTyping(true);
+    setIsStreaming(true);
     setStreamingContent("");
     setThinkingSteps([]);
-  } catch (err) {
-    console.error("Send message error:", err);
-    setError("Xabar yuborishda xatolik");
-  } finally {
-    setIsTyping(false);
-    setIsStreaming(false);
-  }
-};
+    setError("");
+
+    try {
+      let sessionToUse = currentSessionId;
+
+      if (!sessionToUse) {
+        const newSession = await ApiService.createSession(token, 'New Chat');
+        sessionToUse = newSession.id;
+        setCurrentSessionId(newSession.id);
+        setSessions(prev => [newSession, ...prev]);
+        navigate(`/c/${newSession.id}`, { replace: true });
+      }
+
+      let accumulatedContent = "";
+      let currentSteps = [];
+
+      // Streaming callback handler
+      const handleChunk = (chunk) => {
+        switch (chunk.type) {
+          case 'step_started':
+            currentSteps = [...currentSteps, {
+              type: chunk.type,
+              step: chunk.step,
+              message: chunk.message,
+              completed: false
+            }];
+            setThinkingSteps([...currentSteps]);
+            break;
+
+          case 'step_completed':
+            currentSteps = currentSteps.map(s =>
+              s.step === chunk.step ? { ...s, completed: true, message: chunk.message } : s
+            );
+            setThinkingSteps([...currentSteps]);
+            break;
+
+          case 'react_thinking':
+          case 'react_action':
+          case 'react_observation':
+          case 'react_finishing':
+            currentSteps = [...currentSteps, {
+              type: chunk.type,
+              step: chunk.step,
+              message: chunk.message,
+              icon: chunk.icon,
+              tool: chunk.tool,
+              completed: false
+            }];
+            setThinkingSteps([...currentSteps]);
+            break;
+
+          case 'complete':
+            // Mark all steps as completed
+            currentSteps = currentSteps.map(s => ({ ...s, completed: true }));
+            setThinkingSteps([...currentSteps]);
+
+            // Set final response
+            if (chunk.response) {
+              accumulatedContent = chunk.response;
+              setStreamingContent(chunk.response);
+            }
+
+            // Update session in sidebar if title changed
+            if (chunk.session_title) {
+              setSessions(prev => prev.map(s =>
+                s.id === sessionToUse ? { ...s, title: chunk.session_title } : s
+              ));
+            }
+            break;
+
+          default:
+            console.log('Unknown chunk type:', chunk.type, chunk);
+        }
+      };
+
+      const data = await ApiService.sendMessage(
+        messageText,
+        sessionToUse,
+        token,
+        handleChunk
+      );
+
+      // Update session if needed
+      if (data.session_id && data.session_id !== sessionToUse) {
+        setCurrentSessionId(data.session_id);
+        navigate(`/c/${data.session_id}`, { replace: true });
+        loadSessions(token);
+      }
+
+      const filesFromApi = data.files || data.file_paths || [];
+      const finalContent = accumulatedContent || data.response || "";
+
+      const aiMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: finalContent,
+        created_at: new Date().toISOString(),
+        files: filesFromApi,
+        file_paths: data.file_paths || filesFromApi,
+        thinkingSteps: [...currentSteps],
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+      setStreamingContent("");
+    } catch (err) {
+      console.error("Send message error:", err);
+      setError("Xabar yuborishda xatolik");
+    } finally {
+      setIsTyping(false);
+      setIsStreaming(false);
+    }
+  };
 
   // Handler for MessageInput component
   const handleSendMessage = (messageText) => {
@@ -676,18 +708,18 @@ const sendMessage = async (messageText) => {
 
       {/* Sidebar */}
       <Sidebar
-  isLoggedIn={isLoggedIn}
-  username={username}
-  sessions={sessions}
-  currentSessionId={currentSessionId}
-  onNewChat={isLoggedIn ? createNewSession : () => setShowAuthModal(true)}
-  onSelectSession={(id) => selectSession(id)}
-  onDeleteSession={deleteSession}
-  onLogin={() => setShowAuthModal(true)}
-  onLogout={handleLogout}
-  onSettings={() => setShowConfigModal(true)}  // ✅ YANGI
-  isOpen={sidebarOpen}
-/>
+        isLoggedIn={isLoggedIn}
+        username={username}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onNewChat={isLoggedIn ? createNewSession : () => setShowAuthModal(true)}
+        onSelectSession={(id) => selectSession(id)}
+        onDeleteSession={deleteSession}
+        onLogin={() => setShowAuthModal(true)}
+        onLogout={handleLogout}
+        onSettings={() => setShowConfigModal(true)}
+        isOpen={sidebarOpen}
+      />
 
       {/* Main Content */}
       <div style={styles.mainContent}>
@@ -813,18 +845,27 @@ const sendMessage = async (messageText) => {
           ) : (
             <div style={styles.messagesContainer}>
               {messages.map((message, index) => (
-                <ChatMessage key={message.id || index} message={message} />
+                <React.Fragment key={message.id || index}>
+                  {/* Show thinking steps BEFORE assistant message */}
+                  {message.role === 'assistant' && message.thinkingSteps && message.thinkingSteps.length > 0 && (
+                    <ThinkingIndicator
+                      steps={message.thinkingSteps}
+                      isStreaming={false}
+                    />
+                  )}
+                  <ChatMessage message={message} />
+                </React.Fragment>
               ))}
 
-              {/* Thinking steps ko'rsatish */}
-              {isStreaming && thinkingSteps.length > 0 && (
+              {/* Live thinking steps during streaming */}
+              {isStreaming && (
                 <ThinkingIndicator
                   steps={thinkingSteps}
-                  isAnalyzing={!streamingContent}
+                  isStreaming={true}
                 />
               )}
 
-              {/* Streaming content ko'rsatish */}
+              {/* Streaming content */}
               {isStreaming && streamingContent && (
                 <div style={styles.streamingWrapper}>
                   <div style={styles.streamingAvatar}>AI</div>
@@ -834,7 +875,7 @@ const sendMessage = async (messageText) => {
                 </div>
               )}
 
-              {/* Oddiy typing indicator */}
+              {/* Basic typing indicator */}
               {isTyping && !isStreaming && (
                 <div style={styles.streamingWrapper}>
                   <div style={styles.streamingAvatar}>AI</div>
@@ -867,6 +908,17 @@ const sendMessage = async (messageText) => {
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<ChatApp />} />
+        <Route path="/c/:sessionId" element={<ChatApp />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
@@ -1172,6 +1224,15 @@ const styles = {
     fontSize: "15px",
     lineHeight: "1.7",
   },
+  thinkingContainer: {
+    flex: 1,
+    maxWidth: "100%",
+  },
+  savedThinkingWrapper: {
+    marginLeft: "40px",
+    marginTop: "-16px",
+    marginBottom: "8px",
+  },
   typingIndicator: {
     display: "flex",
     gap: "6px",
@@ -1269,8 +1330,6 @@ const styles = {
     fontSize: "14px",
     textAlign: "center",
   },
-
-  // Existing styles ichiga qo'shing
   biAgentIcon: {
     fontSize: "64px",
     marginBottom: "16px",

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://biagent.diyarbek.uz';
+const API_BASE_URL = 'https://localagent.diyarbek.uz';
 
 class ApiService {
   constructor() {
@@ -53,43 +53,33 @@ class ApiService {
     return response.json();
   }
 
- async createSession(token, title = 'New Chat') {
-  try {
-    console.log('🔵 Creating session...');
-    console.log('Token:', token ? 'exists' : 'missing');
-    console.log('Title:', title);
+  async createSession(token, title = 'New Chat') {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/v1/sessions/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title })
+      });
 
-    const response = await fetch(`${this.baseUrl}/api/v1/sessions/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ title })
-    });
-
-    console.log('Response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Error response:', errorText);
-      
-      try {
-        const errorData = JSON.parse(errorText);
-        throw new Error(errorData.detail || errorData.message || 'Session yaratib bo\'lmadi');
-      } catch {
-        throw new Error(`Server xatolik: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.detail || errorData.message || 'Session yaratib bo\'lmadi');
+        } catch {
+          throw new Error(`Server xatolik: ${response.status}`);
+        }
       }
-    }
 
-    const data = await response.json();
-    console.log('✅ Session created:', data);
-    return data;
-  } catch (error) {
-    console.error('❌ Create session error:', error);
-    throw error;
+      return await response.json();
+    } catch (error) {
+      console.error('Create session error:', error);
+      throw error;
+    }
   }
-}
 
   async deleteSession(sessionId, token) {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/${sessionId}/`, {
@@ -112,22 +102,18 @@ class ApiService {
       session_id: sessionId
     };
 
-    // If onChunk callback provided, use streaming; otherwise use standard request
     if (onChunk && typeof onChunk === 'function') {
       return this.sendStreamingMessage(payload, token, onChunk);
     }
 
-    // Fallback to standard non-streaming request
     return this.sendStandardRequest(payload, token);
   }
 
   async sendStreamingMessage(payload, token, onChunk) {
-    // Try streaming endpoint first
     try {
       return await this.sendStreamingRequest(payload, token, onChunk);
     } catch (streamError) {
       console.warn('Streaming endpoint not available, falling back to standard:', streamError);
-      // For fallback, accumulate final response
       return this.sendStandardRequest(payload, token);
     }
   }
@@ -159,9 +145,6 @@ class ApiService {
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
     let fullResponse = null;
-    let accumulatedContent = '';
-    let lastStepNumber = 0;
-    let completeEmitted = false;
 
     try {
       while (true) {
@@ -176,61 +159,62 @@ class ApiService {
           const eventChunk = buffer.slice(0, boundaryIndex);
           buffer = buffer.slice(boundaryIndex + 2);
 
-          const dataLine = eventChunk
-            .split('\n')
-            .find(line => line.startsWith('data:'));
+          // Parse event type and data
+          const lines = eventChunk.split('\n');
+          let eventType = null;
+          let eventData = null;
 
-          if (dataLine) {
-            const rawPayload = dataLine.replace('data:', '').trim();
-
-            // Skip empty or done markers
-            if (!rawPayload || rawPayload === '[DONE]') {
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(rawPayload);
-
-              // Store the full response (last chunk will have complete data)
-              if (parsed) {
-                fullResponse = parsed;
-
-                this.emitStreamEvents(parsed, onChunk, {
-                  accumulatedContentRef: () => accumulatedContent,
-                  setAccumulatedContent: (val) => { accumulatedContent = val; },
-                  lastStepNumberRef: () => lastStepNumber,
-                  setLastStepNumber: (val) => { lastStepNumber = val; },
-                  setCompleteEmitted: (val) => { completeEmitted = val; }
-                });
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              eventType = line.replace('event:', '').trim();
+            } else if (line.startsWith('data:')) {
+              const rawData = line.replace('data:', '').trim();
+              if (rawData && rawData !== '[DONE]') {
+                try {
+                  eventData = JSON.parse(rawData);
+                } catch (e) {
+                  console.warn('Failed to parse SSE data:', rawData);
+                }
               }
-            } catch (err) {
-              console.warn('Streaming chunk parse error:', rawPayload, err);
+            }
+          }
+
+          if (eventType && eventData) {
+            this.emitEvent(eventType, eventData, onChunk);
+
+            // Store complete response
+            if (eventType === 'complete') {
+              fullResponse = eventData;
             }
           }
         }
       }
 
-      // Final flush of remaining buffer
+      // Flush remaining buffer
       if (buffer.trim()) {
-        const dataLine = buffer.split('\n').find(line => line.startsWith('data:'));
-        if (dataLine) {
-          const rawPayload = dataLine.replace('data:', '').trim();
-          if (rawPayload && rawPayload !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(rawPayload);
-              if (parsed) {
-                fullResponse = parsed;
-                this.emitStreamEvents(parsed, onChunk, {
-                  accumulatedContentRef: () => accumulatedContent,
-                  setAccumulatedContent: (val) => { accumulatedContent = val; },
-                  lastStepNumberRef: () => lastStepNumber,
-                  setLastStepNumber: (val) => { lastStepNumber = val; },
-                  setCompleteEmitted: (val) => { completeEmitted = val; }
-                });
+        const lines = buffer.split('\n');
+        let eventType = null;
+        let eventData = null;
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            eventType = line.replace('event:', '').trim();
+          } else if (line.startsWith('data:')) {
+            const rawData = line.replace('data:', '').trim();
+            if (rawData && rawData !== '[DONE]') {
+              try {
+                eventData = JSON.parse(rawData);
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', rawData);
               }
-            } catch (err) {
-              console.warn('Final chunk parse error:', err);
             }
+          }
+        }
+
+        if (eventType && eventData) {
+          this.emitEvent(eventType, eventData, onChunk);
+          if (eventType === 'complete') {
+            fullResponse = eventData;
           }
         }
       }
@@ -239,66 +223,85 @@ class ApiService {
         throw new Error('Streaming response was empty');
       }
 
-      if (!completeEmitted) {
-        onChunk({
-          type: 'complete',
-          step: 'Analysis complete',
-          stepNumber: lastStepNumber > 0 ? lastStepNumber : undefined
-        });
-      }
-
       return this.normalizeFiles(fullResponse);
     } finally {
       reader.cancel();
     }
   }
 
-  emitStreamEvents(parsed, onChunk, helpers) {
-    const {
-      accumulatedContentRef,
-      setAccumulatedContent,
-      lastStepNumberRef,
-      setLastStepNumber,
-      setCompleteEmitted
-    } = helpers;
+  emitEvent(eventType, data, onChunk) {
+    // Map new event format to chunk types
+    switch (eventType) {
+      case 'step_started':
+        onChunk({
+          type: 'step_started',
+          step: data.step,
+          message: data.message
+        });
+        break;
 
-    if (parsed.content) {
-      const updated = accumulatedContentRef() + parsed.content;
-      setAccumulatedContent(updated);
-      onChunk({
-        type: 'content',
-        content: parsed.content,
-        accumulated: updated
-      });
-    }
+      case 'step_completed':
+        onChunk({
+          type: 'step_completed',
+          step: data.step,
+          message: data.message
+        });
+        break;
 
-    const thinkingText = parsed.thinking || parsed.step || parsed.status_text;
-    const thinkingType = parsed.type || parsed.event || parsed.status;
+      case 'react_thinking':
+        onChunk({
+          type: 'react_thinking',
+          step: data.step,
+          message: data.message,
+          icon: data.icon || '🤔'
+        });
+        break;
 
-    if (thinkingText && (thinkingType === 'thinking' || thinkingType === 'step' || !thinkingType)) {
-      const nextStepNumber = parsed.stepNumber || parsed.step_number || lastStepNumberRef() + 1;
-      setLastStepNumber(nextStepNumber);
-      onChunk({
-        type: 'thinking',
-        step: thinkingText,
-        stepNumber: nextStepNumber
-      });
-    }
+      case 'react_action':
+        onChunk({
+          type: 'react_action',
+          step: data.step,
+          message: data.message,
+          icon: data.icon || '🔧',
+          tool: data.tool
+        });
+        break;
 
-    if (parsed.type === 'complete' || parsed.status === 'complete' || parsed.complete) {
-      setCompleteEmitted(true);
-      onChunk({
-        type: 'complete',
-        step: parsed.complete || parsed.status_text || 'Analysis complete',
-        stepNumber: parsed.stepNumber || parsed.step_number || lastStepNumberRef()
-      });
-    }
+      case 'react_observation':
+        onChunk({
+          type: 'react_observation',
+          step: data.step,
+          message: data.message,
+          icon: data.icon || '✅'
+        });
+        break;
 
-    if (parsed.files || parsed.file_paths) {
-      onChunk({
-        type: 'files',
-        files: parsed.files || parsed.file_paths
-      });
+      case 'react_finishing':
+        onChunk({
+          type: 'react_finishing',
+          step: data.step,
+          message: data.message,
+          icon: data.icon || '📝'
+        });
+        break;
+
+      case 'complete':
+        onChunk({
+          type: 'complete',
+          response: data.response,
+          files: data.files || [],
+          session_id: data.session_id,
+          session_title: data.session_title,
+          usage: data.usage
+        });
+        break;
+
+      default:
+        // Handle any other event types
+        onChunk({
+          type: eventType,
+          ...data
+        });
     }
   }
 
