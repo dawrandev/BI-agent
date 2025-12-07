@@ -3,6 +3,7 @@ import {
   DatabaseConnection,
   DatabaseConnectionCreate,
   DatabaseDialect,
+  ConnectionTestResult,
 } from '../../../types';
 import { TrashIcon, DatabaseIcon, PlusIcon } from '../../Icons';
 
@@ -12,7 +13,14 @@ interface ConnectionsSettingsProps {
   onUpdateConnection: (id: number, data: Partial<DatabaseConnectionCreate>) => Promise<void>;
   onDeleteConnection: (id: number) => Promise<void>;
   onSetDefaultConnection: (id: number) => Promise<void>;
+  onTestConnection: (id: number) => Promise<ConnectionTestResult>;
   isSaving: boolean;
+}
+
+interface TestStatus {
+  connectionId: number;
+  isLoading: boolean;
+  result: ConnectionTestResult | null;
 }
 
 const DIALECT_OPTIONS: { value: DatabaseDialect; label: string }[] = [
@@ -27,6 +35,7 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
   onUpdateConnection,
   onDeleteConnection,
   onSetDefaultConnection,
+  onTestConnection,
   isSaving,
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -37,6 +46,7 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
     dialect: 'postgresql',
     is_default: false,
   });
+  const [testStatus, setTestStatus] = useState<TestStatus | null>(null);
 
   const resetForm = () => {
     setFormData({
@@ -47,18 +57,46 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
     });
     setShowAddForm(false);
     setEditingId(null);
+    setTestStatus(null);
+  };
+
+  const handleTestConnection = async (connectionId: number) => {
+    setTestStatus({ connectionId, isLoading: true, result: null });
+    try {
+      const result = await onTestConnection(connectionId);
+      setTestStatus({ connectionId, isLoading: false, result });
+    } catch {
+      setTestStatus({
+        connectionId,
+        isLoading: false,
+        result: { success: false, message: 'Test failed unexpectedly' },
+      });
+    }
   };
 
   const handleCreate = async () => {
     if (!formData.alias || !formData.connection_uri) return;
     await onCreateConnection(formData);
+    // Find the newly created connection and test it
+    // We'll need to reload connections first, so test after the parent reloads
     resetForm();
   };
 
   const handleUpdate = async () => {
     if (editingId === null) return;
     await onUpdateConnection(editingId, formData);
-    resetForm();
+    // Test connection after update if connection_uri was provided
+    if (formData.connection_uri) {
+      await handleTestConnection(editingId);
+    }
+    setEditingId(null);
+    setFormData({
+      alias: '',
+      connection_uri: '',
+      dialect: 'postgresql',
+      is_default: false,
+    });
+    setShowAddForm(false);
   };
 
   const handleEdit = (conn: DatabaseConnection) => {
@@ -155,49 +193,89 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
                 </div>
               ) : (
                 /* View Mode */
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                      <DatabaseIcon className="w-5 h-5 text-accent" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-text-primary">{conn.alias}</span>
-                        {conn.is_default && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">
-                            Default
-                          </span>
-                        )}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                        <DatabaseIcon className="w-5 h-5 text-accent" />
                       </div>
-                      <div className="text-sm text-text-muted">
-                        {conn.dialect.toUpperCase()} • Created {new Date(conn.created_at).toLocaleDateString()}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-text-primary">{conn.alias}</span>
+                          {conn.is_default && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-text-muted">
+                          {conn.dialect.toUpperCase()} • Created {new Date(conn.created_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!conn.is_default && (
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onSetDefaultConnection(conn.id)}
-                        disabled={isSaving}
+                        onClick={() => handleTestConnection(conn.id)}
+                        disabled={isSaving || (testStatus?.connectionId === conn.id && testStatus.isLoading)}
+                        className="text-sm px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:bg-secondary transition-all disabled:opacity-50"
+                      >
+                        {testStatus?.connectionId === conn.id && testStatus.isLoading ? 'Testing...' : 'Test'}
+                      </button>
+                      {!conn.is_default && (
+                        <button
+                          onClick={() => onSetDefaultConnection(conn.id)}
+                          disabled={isSaving}
+                          className="text-sm px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:bg-secondary transition-all"
+                        >
+                          Set Default
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleEdit(conn)}
                         className="text-sm px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:bg-secondary transition-all"
                       >
-                        Set Default
+                        Edit
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleEdit(conn)}
-                      className="text-sm px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:bg-secondary transition-all"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(conn.id)}
-                      disabled={isSaving}
-                      className="p-2 rounded-lg text-error hover:bg-error/10 transition-all"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
+                      <button
+                        onClick={() => handleDelete(conn.id)}
+                        disabled={isSaving}
+                        className="p-2 rounded-lg text-error hover:bg-error/10 transition-all"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+                  {/* Test Result Display */}
+                  {testStatus?.connectionId === conn.id && testStatus.result && (
+                    <div
+                      className={`p-3 rounded-lg text-sm ${
+                        testStatus.result.success
+                          ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                          : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {testStatus.result.success ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        <span className="font-medium">
+                          {testStatus.result.success ? 'Connection successful' : 'Connection failed'}
+                        </span>
+                      </div>
+                      <p className="mt-1 ml-6">{testStatus.result.message}</p>
+                      {testStatus.result.tables_count !== undefined && testStatus.result.tables_count > 0 && (
+                        <div className="mt-2 ml-6 text-xs opacity-80">
+                          <span>Tables found: {testStatus.result.tables_count}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

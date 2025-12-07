@@ -5,12 +5,14 @@ import {
   ArrowLeftIcon,
   SettingsIcon,
   KeyIcon,
+  CpuIcon,
   DatabaseIcon,
   SparklesIcon,
   UserIcon,
 } from '../Icons';
 import GeneralSettings from './sections/GeneralSettings';
 import ApiKeysSettings from './sections/ApiKeysSettings';
+import AIConfigSettings from './sections/AIConfigSettings';
 import ConnectionsSettings from './sections/ConnectionsSettings';
 import InstructionsSettings from './sections/InstructionsSettings';
 import TableSchemasSettings from './sections/TableSchemasSettings';
@@ -42,6 +44,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   onUpdateConnection,
   onDeleteConnection,
   onSetDefaultConnection,
+  onTestConnection,
   isSavingConnection,
 
   // Instructions
@@ -74,6 +77,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const navItems: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <SettingsIcon className="w-4 h-4" /> },
     { id: 'api-keys', label: 'API Keys', icon: <KeyIcon className="w-4 h-4" /> },
+    { id: 'ai-config', label: 'AI Config', icon: <CpuIcon className="w-4 h-4" /> },
     { id: 'connections', label: 'Connections', icon: <DatabaseIcon className="w-4 h-4" /> },
     { id: 'instructions', label: 'Instructions', icon: <SparklesIcon className="w-4 h-4" /> },
     { id: 'tables', label: 'Table Schemas', icon: <TableIcon className="w-4 h-4" /> },
@@ -96,6 +100,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           />
         );
 
+      case 'ai-config':
+        return (
+          <AIConfigSettings
+            configForm={configForm}
+            onConfigFormChange={onConfigFormChange}
+            onSave={onSaveApiKeys}
+            isSaving={isSavingApiKeys}
+          />
+        );
+
       case 'connections':
         return (
           <ConnectionsSettings
@@ -104,6 +118,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
             onUpdateConnection={onUpdateConnection}
             onDeleteConnection={onDeleteConnection}
             onSetDefaultConnection={onSetDefaultConnection}
+            onTestConnection={onTestConnection}
             isSaving={isSavingConnection}
           />
         );

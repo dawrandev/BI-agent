@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import Sidebar from './components/Sidebar/Sidebar';
 import AppHeader from './components/Layout/AppHeader';
 import AuthModal from './components/Modals/AuthModal';
@@ -17,6 +18,7 @@ import {
   ConfigFormData,
   DatabaseConnection,
   DatabaseConnectionCreate,
+  ConnectionTestResult,
   Instruction,
   InstructionCreate,
   InstructionUpdate,
@@ -539,9 +541,15 @@ function SettingsWrapper() {
           setConfig(data);
           setConfigForm({
             telegram_bot_token: '',
+            telegram_chat_id: '',
             anthropic_api_key: '',
-            is_active: data.is_active || false,
-            auto_start: data.auto_start || false,
+            is_active: data.is_active ?? false,
+            auto_start: data.auto_start ?? false,
+            bi_model: data.bi_model || 'claude-sonnet-4-20250514',
+            sql_model: data.sql_model || 'claude-haiku-3-5-20241022',
+            recursion_limit: data.recursion_limit ?? 15,
+            max_sql_retries: data.max_sql_retries ?? 2,
+            temperature: data.temperature ?? 0,
           });
         }
       })
@@ -597,11 +605,19 @@ function SettingsWrapper() {
       const payload: Partial<ConfigFormData> = {
         is_active: configForm.is_active,
         auto_start: configForm.auto_start,
+        bi_model: configForm.bi_model,
+        sql_model: configForm.sql_model,
+        recursion_limit: configForm.recursion_limit,
+        max_sql_retries: configForm.max_sql_retries,
+        temperature: configForm.temperature,
       };
 
-      // Only include keys if they have values (for partial update)
+      // Only include sensitive keys if they have values (for partial update)
       if (configForm.telegram_bot_token) {
         payload.telegram_bot_token = configForm.telegram_bot_token;
+      }
+      if (configForm.telegram_chat_id) {
+        payload.telegram_chat_id = configForm.telegram_chat_id;
       }
       if (configForm.anthropic_api_key) {
         payload.anthropic_api_key = configForm.anthropic_api_key;
@@ -639,6 +655,7 @@ function SettingsWrapper() {
       setConfigForm((prev) => ({
         ...prev,
         telegram_bot_token: '',
+        telegram_chat_id: '',
         anthropic_api_key: '',
       }));
     } finally {
@@ -756,6 +773,44 @@ function SettingsWrapper() {
     }
   };
 
+  const handleTestConnection = async (id: number): Promise<ConnectionTestResult> => {
+    if (!token) {
+      return { success: false, message: 'Not authenticated' };
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/connections/${id}/test/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.detail || data.message || 'Connection test failed',
+          tables_count: data.tables_count,
+        };
+      }
+
+      return {
+        success: data.success ?? true,
+        message: data.message || 'Connection successful',
+        tables_count: data.tables_count,
+        tables: data.tables,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Connection test failed',
+      };
+    }
+  };
+
   // ============ Instructions ============
   const handleCreateInstruction = async (data: InstructionCreate) => {
     if (!token) return;
@@ -870,6 +925,7 @@ function SettingsWrapper() {
       onUpdateConnection={handleUpdateConnection}
       onDeleteConnection={handleDeleteConnection}
       onSetDefaultConnection={handleSetDefaultConnection}
+      onTestConnection={handleTestConnection}
       isSavingConnection={isSavingConnection}
       // Instructions
       instructions={instructions}
@@ -893,13 +949,15 @@ function SettingsWrapper() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<ChatApp />} />
-        <Route path="/c/:sessionId" element={<ChatApp />} />
-        <Route path="/settings" element={<SettingsWrapper />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<ChatApp />} />
+          <Route path="/c/:sessionId" element={<ChatApp />} />
+          <Route path="/settings" element={<SettingsWrapper />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

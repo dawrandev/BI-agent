@@ -48,6 +48,28 @@ const ApiKeysSettings: React.FC<ApiKeysSettingsProps> = ({
 
       <div className="settings-section">
         <div className="flex items-center justify-between mb-2">
+          <label className="settings-label mb-0">Telegram Chat ID</label>
+          {config?.has_telegram_chat_id && (
+            <span className="flex items-center gap-1 text-xs text-success">
+              <CheckIcon className="w-3 h-3" />
+              Configured
+            </span>
+          )}
+        </div>
+        <input
+          type="text"
+          placeholder={config?.has_telegram_chat_id ? '••••••••••••••••' : 'Enter your Telegram Chat ID'}
+          value={configForm.telegram_chat_id}
+          onChange={(e) => onConfigFormChange({ telegram_chat_id: e.target.value })}
+          className="input-field"
+        />
+        <p className="text-xs text-text-muted mt-2">
+          Your Telegram user ID or chat ID to receive notifications
+        </p>
+      </div>
+
+      <div className="settings-section">
+        <div className="flex items-center justify-between mb-2">
           <label className="settings-label mb-0">Anthropic API Key</label>
           {config?.has_anthropic_key && (
             <span className="flex items-center gap-1 text-xs text-success">

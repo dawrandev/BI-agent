@@ -75,14 +75,21 @@ export interface AgentConfig {
   is_active: boolean;
   auto_start: boolean;
   has_telegram_token: boolean;
+  has_telegram_chat_id: boolean;
   has_anthropic_key: boolean;
 }
 
 export interface ConfigFormData {
   telegram_bot_token: string;
+  telegram_chat_id: string;
   anthropic_api_key: string;
   is_active: boolean;
   auto_start: boolean;
+  bi_model: string;
+  sql_model: string;
+  recursion_limit: number;
+  max_sql_retries: number;
+  temperature: number;
 }
 
 // Database Connection (from /api/v1/connections/)
@@ -104,6 +111,13 @@ export interface DatabaseConnectionCreate {
   dialect?: DatabaseDialect;
   is_default?: boolean;
   schema_filter?: string[];
+}
+
+export interface ConnectionTestResult {
+  success: boolean;
+  message: string;
+  tables_count?: number;
+  tables?: string[];
 }
 
 // Instructions (from /api/v1/sqlagent/instructions/)
@@ -146,6 +160,7 @@ export interface TableDescriptionUpdate {
 export type SettingsSection =
   | 'general'
   | 'api-keys'
+  | 'ai-config'
   | 'connections'
   | 'instructions'
   | 'tables'
@@ -319,6 +334,7 @@ export interface SettingsPageProps {
   onUpdateConnection: (id: number, data: Partial<DatabaseConnectionCreate>) => Promise<void>;
   onDeleteConnection: (id: number) => Promise<void>;
   onSetDefaultConnection: (id: number) => Promise<void>;
+  onTestConnection: (id: number) => Promise<ConnectionTestResult>;
   isSavingConnection: boolean;
 
   // Instructions
@@ -387,7 +403,13 @@ export const API_BASE_URL = 'https://localagent.diyarbek.uz';
 
 export const INITIAL_CONFIG_FORM: ConfigFormData = {
   telegram_bot_token: '',
+  telegram_chat_id: '',
   anthropic_api_key: '',
-  is_active: true,
+  is_active: false,
   auto_start: false,
+  bi_model: 'claude-sonnet-4-20250514',
+  sql_model: 'claude-haiku-3-5-20241022',
+  recursion_limit: 15,
+  max_sql_retries: 2,
+  temperature: 0,
 };
