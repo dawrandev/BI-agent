@@ -39,7 +39,6 @@ function ChatApp() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [token, setToken] = useState<string | null>(null);
 
   // Session state
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -71,25 +70,36 @@ function ChatApp() {
     scrollToBottom();
   }, [messages, streamingContent, thinkingSteps, scrollToBottom]);
 
-  // Load token from localStorage
+  // Load token from localStorage and set up auth failure handler
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUsername = localStorage.getItem('username');
     if (savedToken && savedUsername) {
-      setToken(savedToken);
       setUsername(savedUsername);
       setIsLoggedIn(true);
     }
     setInitialLoadDone(true);
+
+    // Set up auth failure callback - will be called when token refresh fails
+    ApiService.setOnAuthFailure(() => {
+      setIsLoggedIn(false);
+      setUsername('');
+      setSessions([]);
+      setCurrentSessionId(null);
+      setMessages([]);
+      localStorage.clear();
+      setShowAuthModal(true);
+      setError('Session expired. Please login again.');
+    });
   }, []);
 
   // Load sessions when logged in
   useEffect(() => {
-    if (isLoggedIn && token && initialLoadDone) {
-      loadSessions(token);
+    if (isLoggedIn && initialLoadDone) {
+      loadSessions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, token, initialLoadDone]);
+  }, [isLoggedIn, initialLoadDone]);
 
   // Track current session ID in ref to avoid dependency loop
   const currentSessionIdRef = useRef<string | null>(null);
@@ -97,11 +107,11 @@ function ChatApp() {
 
   // Handle URL session ID changes
   useEffect(() => {
-    if (initialLoadDone && isLoggedIn && token) {
+    if (initialLoadDone && isLoggedIn) {
       if (urlSessionId) {
         // Only load if URL changed to a different session
         if (urlSessionId !== currentSessionIdRef.current) {
-          selectSession(urlSessionId, token);
+          selectSession(urlSessionId);
         }
       } else if (currentSessionIdRef.current) {
         // URL has no session, clear current
@@ -112,7 +122,7 @@ function ChatApp() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlSessionId, initialLoadDone, isLoggedIn, token]);
+  }, [urlSessionId, initialLoadDone, isLoggedIn]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,15 +141,14 @@ function ChatApp() {
       }
 
       const data = await response.json();
-      setToken(data.access);
-      setIsLoggedIn(true);
-      setShowAuthModal(false);
 
       localStorage.setItem('token', data.access);
       localStorage.setItem('refresh', data.refresh);
       localStorage.setItem('username', username);
 
-      loadSessions(data.access);
+      setIsLoggedIn(true);
+      setShowAuthModal(false);
+      loadSessions();
     } catch (err) {
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
         setError("Backend serverga ulanib bo'lmadi. Server ishlab turibdimi tekshiring.");
@@ -185,7 +194,6 @@ function ChatApp() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setToken(null);
     setUsername('');
     setPassword('');
     setEmail('');
@@ -199,15 +207,9 @@ function ChatApp() {
     navigate('/');
   };
 
-  const loadSessions = async (authToken: string) => {
+  const loadSessions = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/sessions/`, {
-        headers: { Authorization: `Bearer ${authToken || token}` },
-      });
-
-      if (!response.ok) throw new Error('Sessiyalarni yuklashda xatolik');
-
-      const data = await response.json();
+      const data = await ApiService.getSessions();
       setSessions(data);
     } catch (err) {
       console.error('Load sessions error:', err);
@@ -223,19 +225,13 @@ function ChatApp() {
     navigate('/');
   };
 
-  const selectSession = async (sessionId: string, authToken?: string) => {
+  const selectSession = async (sessionId: string) => {
     setCurrentSessionId(sessionId);
     setThinkingSteps([]);
     setStreamingContent('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${sessionId}/`, {
-        headers: { Authorization: `Bearer ${authToken || token}` },
-      });
-
-      if (!response.ok) throw new Error('Session yuklashda xatolik');
-
-      const data = await response.json();
+      const data = await ApiService.getSession(sessionId);
       const normalizedMessages: Message[] = (data.messages || []).map((msg: Message) => {
         return {
           ...msg,
@@ -258,12 +254,7 @@ function ChatApp() {
     e.stopPropagation();
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${sessionId}/`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error("Session o'chirishda xatolik");
+      await ApiService.deleteSession(sessionId);
 
       const updatedSessions = sessions.filter((s) => s.id !== sessionId);
       setSessions(updatedSessions);
@@ -300,7 +291,7 @@ function ChatApp() {
       let sessionToUse = currentSessionId;
 
       if (!sessionToUse) {
-        const newSession = await ApiService.createSession(token!, 'New Chat');
+        const newSession = await ApiService.createSession('New Chat');
         sessionToUse = newSession.id;
         setCurrentSessionId(newSession.id);
         setSessions((prev) => [newSession, ...prev]);
@@ -368,12 +359,12 @@ function ChatApp() {
         }
       };
 
-      const data = await ApiService.sendMessage(messageText, sessionToUse, token!, handleChunk);
+      const data = await ApiService.sendMessage(messageText, sessionToUse, handleChunk);
 
       if (data.session_id && data.session_id !== sessionToUse) {
         setCurrentSessionId(data.session_id);
         navigate(`/c/${data.session_id}`, { replace: true });
-        loadSessions(token!);
+        loadSessions();
       }
 
       const filesFromApi = data.files || [];
