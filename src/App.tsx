@@ -15,8 +15,13 @@ import {
   StreamChunk,
   AgentConfig,
   ConfigFormData,
-  DatabaseConfig,
-  CustomInstructions,
+  DatabaseConnection,
+  DatabaseConnectionCreate,
+  Instruction,
+  InstructionCreate,
+  InstructionUpdate,
+  TableDescription,
+  TableDescriptionUpdate,
   API_BASE_URL,
   INITIAL_CONFIG_FORM,
 } from './types';
@@ -492,22 +497,37 @@ function SettingsWrapper() {
   const navigate = useNavigate();
   const [token] = useState(() => localStorage.getItem('token'));
   const [username] = useState(() => localStorage.getItem('username') || '');
+
+  // API Keys state
   const [config, setConfig] = useState<AgentConfig | null>(null);
   const [configForm, setConfigForm] = useState<ConfigFormData>(INITIAL_CONFIG_FORM);
-  const [databaseConfig, setDatabaseConfig] = useState<DatabaseConfig | null>(null);
-  const [customInstructions, setCustomInstructions] = useState<CustomInstructions | null>(null);
+  const [isSavingApiKeys, setIsSavingApiKeys] = useState(false);
 
+  // Connections state
+  const [connections, setConnections] = useState<DatabaseConnection[]>([]);
+  const [isSavingConnection, setIsSavingConnection] = useState(false);
+
+  // Instructions state
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [isSavingInstruction, setIsSavingInstruction] = useState(false);
+
+  // Tables state
+  const [tables, setTables] = useState<TableDescription[]>([]);
+  const [isSavingTable, setIsSavingTable] = useState(false);
+  const [isLoadingTables, setIsLoadingTables] = useState(false);
+
+  // Load all data on mount
   useEffect(() => {
     if (!token) {
       navigate('/');
       return;
     }
 
+    const headers = { Authorization: `Bearer ${token}` };
+
     // Load config
-    fetch(`${API_BASE_URL}/api/v1/config/me/`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.ok ? res.json() : null)
+    fetch(`${API_BASE_URL}/api/v1/config/me/`, { headers })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
           setConfig(data);
@@ -520,64 +540,344 @@ function SettingsWrapper() {
         }
       })
       .catch(console.error);
+
+    // Load connections
+    fetch(`${API_BASE_URL}/api/v1/connections/`, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setConnections)
+      .catch(console.error);
+
+    // Load instructions
+    fetch(`${API_BASE_URL}/api/v1/sqlagent/instructions/`, { headers })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setInstructions)
+      .catch(console.error);
+
+    // Load tables
+    loadTables();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, navigate]);
+
+  const loadTables = async () => {
+    if (!token) return;
+    setIsLoadingTables(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/sqlagent/tables/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTables(data);
+      }
+    } catch (err) {
+      console.error('Load tables error:', err);
+    } finally {
+      setIsLoadingTables(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.clear();
     navigate('/');
   };
 
+  // ============ API Keys ============
   const handleSaveApiKeys = async () => {
     if (!token) return;
+    setIsSavingApiKeys(true);
 
-    const method = config ? 'PATCH' : 'POST';
-    const url = config
-      ? `${API_BASE_URL}/api/v1/config/${config.id}/`
-      : `${API_BASE_URL}/api/v1/config/`;
+    try {
+      // Build payload - only include non-empty fields for PATCH
+      const payload: Partial<ConfigFormData> = {
+        is_active: configForm.is_active,
+        auto_start: configForm.auto_start,
+      };
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(configForm),
-    });
+      // Only include keys if they have values (for partial update)
+      if (configForm.telegram_bot_token) {
+        payload.telegram_bot_token = configForm.telegram_bot_token;
+      }
+      if (configForm.anthropic_api_key) {
+        payload.anthropic_api_key = configForm.anthropic_api_key;
+      }
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.detail || 'Configuration save failed');
+      const method = config ? 'PATCH' : 'POST';
+      const url = config
+        ? `${API_BASE_URL}/api/v1/config/${config.id}/`
+        : `${API_BASE_URL}/api/v1/config/`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Configuration save failed');
+      }
+
+      // Reload config to get updated has_* flags
+      const configRes = await fetch(`${API_BASE_URL}/api/v1/config/me/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (configRes.ok) {
+        const data = await configRes.json();
+        setConfig(data);
+      }
+
+      // Clear sensitive fields after save
+      setConfigForm((prev) => ({
+        ...prev,
+        telegram_bot_token: '',
+        anthropic_api_key: '',
+      }));
+    } finally {
+      setIsSavingApiKeys(false);
     }
-
-    const data = await response.json();
-    setConfig(data);
-    setConfigForm({
-      ...configForm,
-      telegram_bot_token: '',
-      anthropic_api_key: '',
-    });
   };
 
-  const handleSaveDatabase = async (data: DatabaseConfig) => {
-    console.log('Save database config:', data);
-    setDatabaseConfig(data);
+  // ============ Connections ============
+  const handleCreateConnection = async (data: DatabaseConnectionCreate) => {
+    if (!token) return;
+    setIsSavingConnection(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to create connection');
+      }
+
+      // Reload connections
+      const res = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setConnections(await res.json());
+
+      // Reload tables since new connection might have tables
+      loadTables();
+    } finally {
+      setIsSavingConnection(false);
+    }
   };
 
-  const handleSaveCustomInstructions = async (data: CustomInstructions) => {
-    console.log('Save custom instructions:', data);
-    setCustomInstructions(data);
+  const handleUpdateConnection = async (id: number, data: Partial<DatabaseConnectionCreate>) => {
+    if (!token) return;
+    setIsSavingConnection(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/connections/${id}/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to update connection');
+      }
+
+      // Reload connections
+      const res = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setConnections(await res.json());
+    } finally {
+      setIsSavingConnection(false);
+    }
+  };
+
+  const handleDeleteConnection = async (id: number) => {
+    if (!token) return;
+    setIsSavingConnection(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/connections/${id}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete connection');
+      }
+
+      setConnections((prev) => prev.filter((c) => c.id !== id));
+    } finally {
+      setIsSavingConnection(false);
+    }
+  };
+
+  const handleSetDefaultConnection = async (id: number) => {
+    if (!token) return;
+    setIsSavingConnection(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/connections/${id}/set_default/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to set default connection');
+      }
+
+      // Reload connections
+      const res = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setConnections(await res.json());
+    } finally {
+      setIsSavingConnection(false);
+    }
+  };
+
+  // ============ Instructions ============
+  const handleCreateInstruction = async (data: InstructionCreate) => {
+    if (!token) return;
+    setIsSavingInstruction(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sqlagent/instructions/`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to create instruction');
+      }
+
+      const newInst = await response.json();
+      setInstructions((prev) => [...prev, newInst]);
+    } finally {
+      setIsSavingInstruction(false);
+    }
+  };
+
+  const handleUpdateInstruction = async (id: string, data: InstructionUpdate) => {
+    if (!token) return;
+    setIsSavingInstruction(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sqlagent/instructions/${id}/`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to update instruction');
+      }
+
+      const updated = await response.json();
+      setInstructions((prev) => prev.map((i) => (i.id === id ? updated : i)));
+    } finally {
+      setIsSavingInstruction(false);
+    }
+  };
+
+  const handleDeleteInstruction = async (id: string) => {
+    if (!token) return;
+    setIsSavingInstruction(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sqlagent/instructions/${id}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete instruction');
+      }
+
+      setInstructions((prev) => prev.filter((i) => i.id !== id));
+    } finally {
+      setIsSavingInstruction(false);
+    }
+  };
+
+  // ============ Tables ============
+  const handleUpdateTable = async (tableName: string, data: TableDescriptionUpdate) => {
+    if (!token) return;
+    setIsSavingTable(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/sqlagent/tables/${tableName}/`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to update table');
+      }
+
+      const updated = await response.json();
+      setTables((prev) => prev.map((t) => (t.name === tableName ? updated : t)));
+    } finally {
+      setIsSavingTable(false);
+    }
   };
 
   return (
     <SettingsPage
+      // API Keys
       config={config}
-      databaseConfig={databaseConfig}
-      customInstructions={customInstructions}
       configForm={configForm}
       onConfigFormChange={(updates) => setConfigForm((prev) => ({ ...prev, ...updates }))}
       onSaveApiKeys={handleSaveApiKeys}
-      onSaveDatabase={handleSaveDatabase}
-      onSaveCustomInstructions={handleSaveCustomInstructions}
+      isSavingApiKeys={isSavingApiKeys}
+      // Connections
+      connections={connections}
+      onCreateConnection={handleCreateConnection}
+      onUpdateConnection={handleUpdateConnection}
+      onDeleteConnection={handleDeleteConnection}
+      onSetDefaultConnection={handleSetDefaultConnection}
+      isSavingConnection={isSavingConnection}
+      // Instructions
+      instructions={instructions}
+      onCreateInstruction={handleCreateInstruction}
+      onUpdateInstruction={handleUpdateInstruction}
+      onDeleteInstruction={handleDeleteInstruction}
+      isSavingInstruction={isSavingInstruction}
+      // Tables
+      tables={tables}
+      onUpdateTable={handleUpdateTable}
+      isSavingTable={isSavingTable}
+      isLoadingTables={isLoadingTables}
+      onRefreshTables={loadTables}
+      // Navigation & User
       onClose={() => navigate('/')}
       username={username}
       onLogout={handleLogout}

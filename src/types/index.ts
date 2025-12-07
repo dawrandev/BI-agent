@@ -85,26 +85,70 @@ export interface ConfigFormData {
   auto_start: boolean;
 }
 
-export interface DatabaseConfig {
-  id?: string;
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database_name: string;
-  is_connected?: boolean;
+// Database Connection (from /api/v1/connections/)
+export type DatabaseDialect = 'postgresql' | 'mysql' | 'sqlite';
+
+export interface DatabaseConnection {
+  id: number;
+  alias: string;
+  dialect: DatabaseDialect;
+  is_default: boolean;
+  schema_filter?: string[];
+  created_at: string;
+  updated_at: string;
 }
 
-export interface CustomInstructions {
-  id?: string;
-  system_prompt: string;
+export interface DatabaseConnectionCreate {
+  alias: string;
+  connection_uri: string;
+  dialect?: DatabaseDialect;
+  is_default?: boolean;
+  schema_filter?: string[];
+}
+
+// Instructions (from /api/v1/sqlagent/instructions/)
+export interface Instruction {
+  id: string;
+  instruction: string;
+  is_active: boolean;
+  created_at: string;
+  db_connection_id: string;
+}
+
+export interface InstructionCreate {
+  instruction: string;
+}
+
+export interface InstructionUpdate {
+  instruction: string;
+  is_active?: boolean;
+}
+
+// Table Schemas (from /api/v1/sqlagent/tables/)
+export interface ColumnDescription {
+  name: string;
+  type: string;
+  comment: string | null;
+  nullable: boolean;
+}
+
+export interface TableDescription {
+  name: string;
+  description: string | null;
+  columns: ColumnDescription[];
+}
+
+export interface TableDescriptionUpdate {
+  description?: string;
+  columns?: Array<{ name: string; description: string }>;
 }
 
 export type SettingsSection =
   | 'general'
   | 'api-keys'
-  | 'database'
-  | 'custom-instructions'
+  | 'connections'
+  | 'instructions'
+  | 'tables'
   | 'account';
 
 // ============================================
@@ -262,14 +306,36 @@ export interface AppHeaderProps {
 }
 
 export interface SettingsPageProps {
+  // API Keys
   config: AgentConfig | null;
-  databaseConfig: DatabaseConfig | null;
-  customInstructions: CustomInstructions | null;
   configForm: ConfigFormData;
   onConfigFormChange: (updates: Partial<ConfigFormData>) => void;
   onSaveApiKeys: () => Promise<void>;
-  onSaveDatabase: (data: DatabaseConfig) => Promise<void>;
-  onSaveCustomInstructions: (data: CustomInstructions) => Promise<void>;
+  isSavingApiKeys: boolean;
+
+  // Connections
+  connections: DatabaseConnection[];
+  onCreateConnection: (data: DatabaseConnectionCreate) => Promise<void>;
+  onUpdateConnection: (id: number, data: Partial<DatabaseConnectionCreate>) => Promise<void>;
+  onDeleteConnection: (id: number) => Promise<void>;
+  onSetDefaultConnection: (id: number) => Promise<void>;
+  isSavingConnection: boolean;
+
+  // Instructions
+  instructions: Instruction[];
+  onCreateInstruction: (data: InstructionCreate) => Promise<void>;
+  onUpdateInstruction: (id: string, data: InstructionUpdate) => Promise<void>;
+  onDeleteInstruction: (id: string) => Promise<void>;
+  isSavingInstruction: boolean;
+
+  // Tables
+  tables: TableDescription[];
+  onUpdateTable: (tableName: string, data: TableDescriptionUpdate) => Promise<void>;
+  isSavingTable: boolean;
+  isLoadingTables: boolean;
+  onRefreshTables: () => Promise<void>;
+
+  // Navigation & User
   onClose: () => void;
   username: string;
   onLogout: () => void;
