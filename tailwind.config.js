@@ -7,22 +7,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // ChatGPT-style colors
+        // Theme-aware colors using CSS variables
         primary: {
-          DEFAULT: '#212121',
-          50: '#2f2f2f',
-          100: '#171717',
+          DEFAULT: 'var(--color-primary)',
+          50: 'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
         },
         sidebar: {
-          DEFAULT: '#171717',
-          hover: '#2f2f2f',
+          DEFAULT: 'var(--color-sidebar)',
+          hover: 'var(--color-sidebar-hover)',
         },
         secondary: {
-          DEFAULT: '#2f2f2f',
+          DEFAULT: 'var(--color-secondary)',
         },
         border: {
-          DEFAULT: '#424242',
-          subtle: '#2d2d2d',
+          DEFAULT: 'var(--color-border)',
+          subtle: 'var(--color-border-subtle)',
         },
         accent: {
           DEFAULT: '#10a37f',
@@ -30,11 +30,11 @@ module.exports = {
           light: '#19c37d',
         },
         text: {
-          primary: '#ececec',
-          secondary: '#c5c5d2',
-          tertiary: '#8e8ea0',
-          muted: '#666680',
-          subtle: '#4a4a5a',
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          tertiary: 'var(--color-text-tertiary)',
+          muted: 'var(--color-text-muted)',
+          subtle: 'var(--color-text-subtle)',
         },
         success: {
           DEFAULT: '#10a37f',
@@ -45,7 +45,7 @@ module.exports = {
           DEFAULT: '#ef4444',
         },
         user: {
-          message: '#2f2f2f',
+          message: 'var(--color-user-message)',
         },
       },
       backgroundImage: {
@@ -94,69 +94,8 @@ module.exports = {
         'modal': '1000',
       },
       boxShadow: {
-        'dropdown': '0 4px 20px rgba(0, 0, 0, 0.4)',
+        'dropdown': 'var(--shadow-dropdown)',
         'focus': '0 0 0 2px rgba(16, 163, 127, 0.2)',
-      },
-      typography: {
-        DEFAULT: {
-          css: {
-            '--tw-prose-body': '#c5c5d2',
-            '--tw-prose-headings': '#ececec',
-            '--tw-prose-lead': '#8e8ea0',
-            '--tw-prose-links': '#10a37f',
-            '--tw-prose-bold': '#ececec',
-            '--tw-prose-counters': '#8e8ea0',
-            '--tw-prose-bullets': '#666680',
-            '--tw-prose-hr': '#424242',
-            '--tw-prose-quotes': '#c5c5d2',
-            '--tw-prose-quote-borders': '#10a37f',
-            '--tw-prose-captions': '#8e8ea0',
-            '--tw-prose-code': '#c5c5d2',
-            '--tw-prose-pre-code': '#c5c5d2',
-            '--tw-prose-pre-bg': '#2f2f2f',
-            '--tw-prose-th-borders': '#424242',
-            '--tw-prose-td-borders': '#424242',
-            maxWidth: 'none',
-            code: {
-              backgroundColor: '#424242',
-              padding: '0.125rem 0.375rem',
-              borderRadius: '0.25rem',
-              fontWeight: '400',
-            },
-            'code::before': {
-              content: '""',
-            },
-            'code::after': {
-              content: '""',
-            },
-            pre: {
-              backgroundColor: '#2f2f2f',
-              border: '1px solid #424242',
-              borderRadius: '0.5rem',
-            },
-            blockquote: {
-              backgroundColor: 'rgba(16, 163, 127, 0.1)',
-              borderLeftColor: '#10a37f',
-              fontStyle: 'normal',
-            },
-            'blockquote p:first-of-type::before': {
-              content: '""',
-            },
-            'blockquote p:last-of-type::after': {
-              content: '""',
-            },
-            table: {
-              borderCollapse: 'collapse',
-            },
-            th: {
-              backgroundColor: '#2f2f2f',
-              borderColor: '#424242',
-            },
-            td: {
-              borderColor: '#424242',
-            },
-          },
-        },
       },
     },
   },

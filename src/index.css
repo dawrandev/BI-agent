@@ -2,6 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   Theme Variables - ChatGPT Style
+   ======================================== */
+
+:root {
+  /* Default to dark theme */
+  --color-primary: #212121;
+  --color-primary-50: #2f2f2f;
+  --color-primary-100: #171717;
+  --color-sidebar: #171717;
+  --color-sidebar-hover: #2f2f2f;
+  --color-secondary: #2f2f2f;
+  --color-border: #424242;
+  --color-border-subtle: #2d2d2d;
+  --color-text-primary: #ececec;
+  --color-text-secondary: #c5c5d2;
+  --color-text-tertiary: #8e8ea0;
+  --color-text-muted: #666680;
+  --color-text-subtle: #4a4a5a;
+  --color-user-message: #2f2f2f;
+  --shadow-dropdown: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --color-code-bg: #424242;
+  --color-pre-bg: #2f2f2f;
+  --color-table-row-alt: #212121;
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #525252;
+}
+
+/* Dark theme (explicit) */
+.dark {
+  --color-primary: #212121;
+  --color-primary-50: #2f2f2f;
+  --color-primary-100: #171717;
+  --color-sidebar: #171717;
+  --color-sidebar-hover: #2f2f2f;
+  --color-secondary: #2f2f2f;
+  --color-border: #424242;
+  --color-border-subtle: #2d2d2d;
+  --color-text-primary: #ececec;
+  --color-text-secondary: #c5c5d2;
+  --color-text-tertiary: #8e8ea0;
+  --color-text-muted: #666680;
+  --color-text-subtle: #4a4a5a;
+  --color-user-message: #2f2f2f;
+  --shadow-dropdown: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --color-code-bg: #424242;
+  --color-pre-bg: #2f2f2f;
+  --color-table-row-alt: #212121;
+  --scrollbar-thumb: #424242;
+  --scrollbar-thumb-hover: #525252;
+}
+
+/* Light theme - ChatGPT style */
+.light {
+  --color-primary: #ffffff;
+  --color-primary-50: #f7f7f8;
+  --color-primary-100: #ececec;
+  --color-sidebar: #f9f9f9;
+  --color-sidebar-hover: #ececec;
+  --color-secondary: #f4f4f4;
+  --color-border: #e5e5e5;
+  --color-border-subtle: #ebebeb;
+  --color-text-primary: #0d0d0d;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-text-subtle: #d1d5db;
+  --color-user-message: #f4f4f4;
+  --shadow-dropdown: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --color-code-bg: #f4f4f4;
+  --color-pre-bg: #f7f7f8;
+  --color-table-row-alt: #f9f9f9;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+}
+
 @layer base {
   * {
     @apply m-0 p-0 box-border;
@@ -11,6 +87,7 @@
     @apply bg-primary text-text-primary font-sans m-0 overflow-hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   code {
@@ -72,11 +149,16 @@
   }
 
   .modal-overlay {
-    @apply fixed inset-0 bg-black/85 flex items-center justify-center z-modal;
+    @apply fixed inset-0 flex items-center justify-center z-modal;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .dark .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.85);
   }
 
   .modal-content {
-    @apply bg-secondary p-8 rounded-2xl border border-border min-w-[420px] max-w-[600px];
+    @apply bg-primary p-8 rounded-2xl border border-border min-w-[420px] max-w-[600px];
   }
 
   .modal-title {
@@ -84,7 +166,7 @@
   }
 
   .dropdown-menu {
-    @apply bg-secondary border border-border rounded-xl p-1 z-dropdown shadow-dropdown;
+    @apply bg-primary border border-border rounded-xl p-1 z-dropdown shadow-dropdown;
   }
 
   .dropdown-item {
@@ -151,61 +233,141 @@
   .settings-label {
     @apply block text-sm text-text-secondary mb-2;
   }
+
+  /* Theme toggle switch */
+  .theme-toggle {
+    @apply relative inline-flex h-6 w-11 items-center rounded-full cursor-pointer transition-colors;
+  }
+
+  .theme-toggle-thumb {
+    @apply inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-md;
+  }
 }
 
-/* Dark mode overrides for react-markdown-preview */
+/* ========================================
+   Markdown Styles - Theme Aware
+   ======================================== */
+
+/* Dark mode markdown */
+.dark [data-color-mode="dark"] .wmde-markdown,
 [data-color-mode="dark"] .wmde-markdown {
   background-color: transparent !important;
   color: #c5c5d2 !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown pre,
 [data-color-mode="dark"] .wmde-markdown pre {
-  background-color: #2f2f2f !important;
-  border: 1px solid #424242 !important;
+  background-color: var(--color-pre-bg) !important;
+  border: 1px solid var(--color-border) !important;
   border-radius: 8px !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown code,
 [data-color-mode="dark"] .wmde-markdown code {
-  background-color: #424242 !important;
+  background-color: var(--color-code-bg) !important;
   color: #c5c5d2 !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown table,
 [data-color-mode="dark"] .wmde-markdown table {
-  border-color: #424242 !important;
+  border-color: var(--color-border) !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown th,
+.dark [data-color-mode="dark"] .wmde-markdown td,
 [data-color-mode="dark"] .wmde-markdown th,
 [data-color-mode="dark"] .wmde-markdown td {
-  border-color: #424242 !important;
+  border-color: var(--color-border) !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown th,
 [data-color-mode="dark"] .wmde-markdown th {
-  background-color: #2f2f2f !important;
+  background-color: var(--color-pre-bg) !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown tr:nth-child(even),
 [data-color-mode="dark"] .wmde-markdown tr:nth-child(even) {
-  background-color: #212121 !important;
+  background-color: var(--color-table-row-alt) !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown a,
 [data-color-mode="dark"] .wmde-markdown a {
   color: #10a37f !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown blockquote,
 [data-color-mode="dark"] .wmde-markdown blockquote {
   border-left-color: #10a37f !important;
   background-color: rgba(16, 163, 127, 0.1) !important;
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown img,
 [data-color-mode="dark"] .wmde-markdown img {
   border-radius: 8px;
-  border: 1px solid #424242;
+  border: 1px solid var(--color-border);
 }
 
+.dark [data-color-mode="dark"] .wmde-markdown hr,
 [data-color-mode="dark"] .wmde-markdown hr {
-  background-color: #424242 !important;
+  background-color: var(--color-border) !important;
 }
 
-/* Scrollbar styling */
+/* Light mode markdown */
+.light [data-color-mode="light"] .wmde-markdown {
+  background-color: transparent !important;
+  color: #374151 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown pre {
+  background-color: #f7f7f8 !important;
+  border: 1px solid #e5e5e5 !important;
+  border-radius: 8px !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown code {
+  background-color: #f4f4f4 !important;
+  color: #374151 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown table {
+  border-color: #e5e5e5 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown th,
+.light [data-color-mode="light"] .wmde-markdown td {
+  border-color: #e5e5e5 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown th {
+  background-color: #f7f7f8 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown tr:nth-child(even) {
+  background-color: #f9f9f9 !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown a {
+  color: #10a37f !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown blockquote {
+  border-left-color: #10a37f !important;
+  background-color: rgba(16, 163, 127, 0.08) !important;
+}
+
+.light [data-color-mode="light"] .wmde-markdown img {
+  border-radius: 8px;
+  border: 1px solid #e5e5e5;
+}
+
+.light [data-color-mode="light"] .wmde-markdown hr {
+  background-color: #e5e5e5 !important;
+}
+
+/* ========================================
+   Scrollbar Styling - Theme Aware
+   ======================================== */
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -215,15 +377,15 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #424242;
+  background-color: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #525252;
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #424242 transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }

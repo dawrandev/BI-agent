@@ -4,9 +4,11 @@ import FileAttachment from './FileAttachment';
 import CopyButton from './CopyButton';
 import { ChatMessageProps } from '../../types';
 import { SparklesIcon } from '../Icons';
+import { useTheme } from '../../context/ThemeContext';
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const { theme } = useTheme();
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -48,18 +50,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           <div className="flex-1 min-w-0">
             {/* Message content */}
             <div className="text-text-primary text-base leading-relaxed">
-              <div data-color-mode="dark">
+              <div data-color-mode={theme}>
                 <MarkdownPreview
                   source={message.content}
                   style={{
                     backgroundColor: 'transparent',
-                    color: '#ececec',
+                    color: theme === 'dark' ? '#ececec' : '#374151',
                     fontSize: '15px',
                     lineHeight: '1.75',
                     fontFamily: 'inherit',
                   }}
                   wrapperElement={{
-                    'data-color-mode': 'dark',
+                    'data-color-mode': theme,
                   }}
                 />
               </div>
