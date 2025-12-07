@@ -345,11 +345,9 @@ class ApiService {
   }
 
   private normalizeFiles(data: SendMessageResponse): SendMessageResponse {
-    const files = data.files || data.file_paths || [];
     return {
       ...data,
-      files,
-      file_paths: data.file_paths || files,
+      files: data.files || [],
     };
   }
 }

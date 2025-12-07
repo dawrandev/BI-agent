@@ -1,26 +1,17 @@
 import React from 'react';
-import { FileAttachmentProps, API_BASE_URL } from '../../types';
+import { FileAttachmentProps, FileInfo, API_BASE_URL } from '../../types';
 
 const FileAttachment: React.FC<FileAttachmentProps> = ({ files }) => {
-  const getFileUrl = (filePath: string): string => {
-    if (filePath.startsWith('http')) {
-      return filePath;
+  const getFileUrl = (file: FileInfo): string => {
+    if (file.url.startsWith('http')) {
+      return file.url;
     }
-    const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+    const cleanPath = file.url.startsWith('/') ? file.url.substring(1) : file.url;
     return `${API_BASE_URL}/${cleanPath}`;
   };
 
-  const getFileName = (filePath: string): string => {
-    return filePath.split('/').pop() || 'Download File';
-  };
-
-  const getFileType = (filePath: string): string => {
-    const extension = filePath.split('.').pop()?.toUpperCase();
-    return extension || 'FILE';
-  };
-
-  const getFileIcon = (filePath: string): string => {
-    const ext = filePath.split('.').pop()?.toLowerCase();
+  const getFileIcon = (type: string): string => {
+    const ext = type.toLowerCase();
     const iconMap: Record<string, string> = {
       'pdf': '📄',
       'xlsx': '📊',
@@ -34,17 +25,20 @@ const FileAttachment: React.FC<FileAttachmentProps> = ({ files }) => {
       'jpeg': '🖼️',
       'zip': '📦',
     };
-    return iconMap[ext || ''] || '📎';
+    return iconMap[ext] || '📎';
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
     <div className="mt-4 flex flex-col gap-2.5 pt-4 border-t border-border">
       {files.map((file, idx) => {
-        const filePath = typeof file === 'string' ? file : (file as { url: string }).url;
-        const fileUrl = getFileUrl(filePath);
-        const fileName = getFileName(filePath);
-        const fileType = getFileType(filePath);
-        const fileIcon = getFileIcon(filePath);
+        const fileUrl = getFileUrl(file);
+        const fileIcon = getFileIcon(file.type);
 
         return (
           <a
@@ -59,10 +53,10 @@ const FileAttachment: React.FC<FileAttachmentProps> = ({ files }) => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold mb-1 text-white overflow-hidden text-ellipsis whitespace-nowrap">
-                {fileName}
+                {file.name}
               </div>
               <div className="text-xs text-text-subtle font-medium">
-                {fileType}
+                {file.type.toUpperCase()} • {formatFileSize(file.size)}
               </div>
             </div>
             <div className="text-xl text-accent-purple font-bold">↓</div>

@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { MessageInputProps } from '../../types';
+import { ArrowUpIcon } from '../Icons';
 
 const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
@@ -37,13 +38,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const canSend = value && value.trim() && !disabled;
 
   return (
-    <div className="w-full max-w-chat mx-auto px-6 pb-6 pt-4">
+    <div className="w-full max-w-3xl mx-auto px-4 pb-4">
       <div
         className={`
-          flex items-end gap-3 p-3 px-4 rounded-3xl border bg-secondary transition-all
-          ${isFocused ? 'border-accent-purple shadow-focus' : 'border-border'}
+          relative flex items-end gap-3 p-3 rounded-2xl border transition-all
+          ${isFocused ? 'border-accent shadow-focus bg-secondary' : 'border-border bg-secondary'}
         `}
       >
+        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={value}
@@ -51,38 +53,32 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder="Ask about your business data..."
-          className="flex-1 py-2 border-none bg-transparent text-white text-base leading-normal outline-none resize-none min-h-[24px] max-h-[200px] font-sans overflow-auto placeholder:text-text-subtle"
+          placeholder="Message BI Agent..."
+          className="flex-1 bg-transparent text-text-primary placeholder:text-text-muted resize-none outline-none text-base max-h-52 min-h-6 py-1.5 font-sans"
           disabled={disabled}
           rows={1}
         />
+
+        {/* Send button */}
         <button
           onClick={handleSubmit}
-          className={`
-            w-10 h-10 rounded-full border-none bg-gradient-accent text-white
-            flex items-center justify-center transition-all flex-shrink-0
-            ${canSend ? 'opacity-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'}
-          `}
           disabled={!canSend}
+          className={`
+            p-2 rounded-lg transition-all flex-shrink-0 border-none cursor-pointer
+            ${canSend
+              ? 'bg-accent text-white hover:bg-accent-hover'
+              : 'bg-secondary text-text-muted cursor-not-allowed'}
+          `}
           type="button"
+          aria-label="Send message"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="12" y1="19" x2="12" y2="5"></line>
-            <polyline points="5 12 12 5 19 12"></polyline>
-          </svg>
+          <ArrowUpIcon className="w-5 h-5" />
         </button>
       </div>
+
+      {/* Footer text */}
       <p className="mt-2 text-xs text-text-muted text-center">
-        Press Enter to send, Shift+Enter for new line
+        BI Agent can make mistakes. Consider checking important information.
       </p>
     </div>
   );

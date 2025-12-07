@@ -7,52 +7,53 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ChatGPT-style colors
         primary: {
-          DEFAULT: '#0f1419',
-          50: '#1a1f2e',
-          100: '#151a26',
+          DEFAULT: '#212121',
+          50: '#2f2f2f',
+          100: '#171717',
+        },
+        sidebar: {
+          DEFAULT: '#171717',
+          hover: '#2f2f2f',
         },
         secondary: {
-          DEFAULT: '#1a1f2e',
+          DEFAULT: '#2f2f2f',
         },
         border: {
-          DEFAULT: '#2d3748',
+          DEFAULT: '#424242',
+          subtle: '#2d2d2d',
         },
         accent: {
-          purple: {
-            DEFAULT: '#667eea',
-            start: '#667eea',
-            end: '#764ba2',
-          },
-          green: {
-            DEFAULT: '#10b981',
-            start: '#10b981',
-            end: '#059669',
-          }
+          DEFAULT: '#10a37f',
+          hover: '#0d8a6a',
+          light: '#19c37d',
         },
         text: {
-          primary: '#ffffff',
-          secondary: '#e2e8f0',
-          tertiary: '#cbd5e0',
-          muted: '#9ca3af',
-          subtle: '#718096',
+          primary: '#ececec',
+          secondary: '#c5c5d2',
+          tertiary: '#8e8ea0',
+          muted: '#666680',
+          subtle: '#4a4a5a',
         },
         success: {
-          DEFAULT: '#10b981',
-          bg: '#065f46',
-          text: '#6ee7b7',
+          DEFAULT: '#10a37f',
+          bg: 'rgba(16, 163, 127, 0.15)',
+          text: '#10a37f',
         },
         error: {
-          DEFAULT: '#dc2626',
-        }
+          DEFAULT: '#ef4444',
+        },
+        user: {
+          message: '#2f2f2f',
+        },
       },
       backgroundImage: {
-        'gradient-accent': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        'gradient-success': 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        'gradient-accent': 'linear-gradient(135deg, #10a37f 0%, #0d8a6a 100%)',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        mono: ['source-code-pro', 'Menlo', 'Monaco', 'Consolas', '"Courier New"', 'monospace'],
+        sans: ['Söhne', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['Söhne Mono', 'Monaco', 'Andale Mono', 'Ubuntu Mono', 'monospace'],
       },
       borderRadius: {
         'message': '18px',
@@ -83,10 +84,10 @@ module.exports = {
         'message': '70%',
       },
       minWidth: {
-        'sidebar': '280px',
+        'sidebar': '260px',
       },
       width: {
-        'sidebar': '280px',
+        'sidebar': '260px',
       },
       zIndex: {
         'dropdown': '999',
@@ -94,30 +95,30 @@ module.exports = {
       },
       boxShadow: {
         'dropdown': '0 4px 20px rgba(0, 0, 0, 0.4)',
-        'focus': '0 0 0 2px rgba(102, 126, 234, 0.2)',
+        'focus': '0 0 0 2px rgba(16, 163, 127, 0.2)',
       },
       typography: {
         DEFAULT: {
           css: {
-            '--tw-prose-body': '#e2e8f0',
-            '--tw-prose-headings': '#ffffff',
-            '--tw-prose-lead': '#cbd5e0',
-            '--tw-prose-links': '#667eea',
-            '--tw-prose-bold': '#ffffff',
-            '--tw-prose-counters': '#9ca3af',
-            '--tw-prose-bullets': '#718096',
-            '--tw-prose-hr': '#2d3748',
-            '--tw-prose-quotes': '#e2e8f0',
-            '--tw-prose-quote-borders': '#667eea',
-            '--tw-prose-captions': '#9ca3af',
-            '--tw-prose-code': '#e2e8f0',
-            '--tw-prose-pre-code': '#e2e8f0',
-            '--tw-prose-pre-bg': '#1a1f2e',
-            '--tw-prose-th-borders': '#2d3748',
-            '--tw-prose-td-borders': '#2d3748',
+            '--tw-prose-body': '#c5c5d2',
+            '--tw-prose-headings': '#ececec',
+            '--tw-prose-lead': '#8e8ea0',
+            '--tw-prose-links': '#10a37f',
+            '--tw-prose-bold': '#ececec',
+            '--tw-prose-counters': '#8e8ea0',
+            '--tw-prose-bullets': '#666680',
+            '--tw-prose-hr': '#424242',
+            '--tw-prose-quotes': '#c5c5d2',
+            '--tw-prose-quote-borders': '#10a37f',
+            '--tw-prose-captions': '#8e8ea0',
+            '--tw-prose-code': '#c5c5d2',
+            '--tw-prose-pre-code': '#c5c5d2',
+            '--tw-prose-pre-bg': '#2f2f2f',
+            '--tw-prose-th-borders': '#424242',
+            '--tw-prose-td-borders': '#424242',
             maxWidth: 'none',
             code: {
-              backgroundColor: '#2d3748',
+              backgroundColor: '#424242',
               padding: '0.125rem 0.375rem',
               borderRadius: '0.25rem',
               fontWeight: '400',
@@ -129,13 +130,13 @@ module.exports = {
               content: '""',
             },
             pre: {
-              backgroundColor: '#1a1f2e',
-              border: '1px solid #2d3748',
+              backgroundColor: '#2f2f2f',
+              border: '1px solid #424242',
               borderRadius: '0.5rem',
             },
             blockquote: {
-              backgroundColor: 'rgba(102, 126, 234, 0.1)',
-              borderLeftColor: '#667eea',
+              backgroundColor: 'rgba(16, 163, 127, 0.1)',
+              borderLeftColor: '#10a37f',
               fontStyle: 'normal',
             },
             'blockquote p:first-of-type::before': {
@@ -148,11 +149,11 @@ module.exports = {
               borderCollapse: 'collapse',
             },
             th: {
-              backgroundColor: '#1a1f2e',
-              borderColor: '#2d3748',
+              backgroundColor: '#2f2f2f',
+              borderColor: '#424242',
             },
             td: {
-              borderColor: '#2d3748',
+              borderColor: '#424242',
             },
           },
         },

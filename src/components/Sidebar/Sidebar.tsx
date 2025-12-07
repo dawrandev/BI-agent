@@ -2,6 +2,7 @@ import React from 'react';
 import ChatHistory from './ChatHistory';
 import UserSection from './UserSection';
 import { SidebarProps } from '../../types';
+import { PlusIcon } from '../Icons';
 
 const Sidebar: React.FC<SidebarProps> = ({
   isLoggedIn,
@@ -19,29 +20,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div
       className={`
-        bg-secondary flex flex-col transition-all duration-300
-        ${isOpen ? 'w-sidebar min-w-sidebar border-r border-border' : 'w-0 min-w-0 p-0 border-none overflow-hidden'}
+        bg-sidebar flex flex-col transition-all duration-300 h-full
+        ${isOpen ? 'w-[260px] min-w-[260px]' : 'w-0 min-w-0 overflow-hidden'}
       `}
     >
-      <div className="w-sidebar flex flex-col h-full">
-        {/* Logo */}
-        <div className="p-5 border-b border-border flex items-center gap-3">
-          <div className="w-7 h-7 bg-gradient-accent rounded-md flex-shrink-0" />
-          <span className="font-bold text-lg tracking-tight text-white whitespace-nowrap">
-            BI Agent
-          </span>
-        </div>
-
-        {/* Menu Items */}
-        <div className="flex-1 p-4 overflow-y-auto">
+      <div className="w-[260px] flex flex-col h-full">
+        {/* New Chat Button - Top */}
+        <div className="p-3">
           <button
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-transparent text-white cursor-pointer text-sm mb-2 font-medium transition-all whitespace-nowrap hover:bg-border"
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-lg border border-border bg-transparent text-text-primary cursor-pointer text-sm font-medium transition-all hover:bg-sidebar-hover"
             onClick={onNewChat}
           >
-            <span className="text-xl font-bold">+</span>
-            <span>New Chat</span>
+            <PlusIcon className="w-4 h-4" />
+            <span>New chat</span>
           </button>
+        </div>
 
+        {/* Chat History - Scrollable Middle */}
+        <div className="flex-1 overflow-y-auto px-2">
           <ChatHistory
             sessions={sessions}
             currentSessionId={currentSessionId}
@@ -50,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           />
         </div>
 
+        {/* User Section - Bottom */}
         <UserSection
           isLoggedIn={isLoggedIn}
           username={username}

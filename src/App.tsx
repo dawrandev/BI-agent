@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-rout
 import Sidebar from './components/Sidebar/Sidebar';
 import AppHeader from './components/Layout/AppHeader';
 import AuthModal from './components/Modals/AuthModal';
-import ConfigModal from './components/Modals/ConfigModal';
+import SettingsPage from './components/Settings/SettingsPage';
 import WelcomeScreen from './components/Landing/WelcomeScreen';
 import EmptyState from './components/Landing/EmptyState';
 import ChatView from './components/Chat/ChatView';
@@ -13,8 +13,10 @@ import {
   Message,
   Session,
   StreamChunk,
-  OdooConfig,
+  AgentConfig,
   ConfigFormData,
+  DatabaseConfig,
+  CustomInstructions,
   API_BASE_URL,
   INITIAL_CONFIG_FORM,
 } from './types';
@@ -43,7 +45,6 @@ function ChatApp() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [error, setError] = useState('');
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
@@ -52,9 +53,6 @@ function ChatApp() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState<StreamChunk[]>([]);
 
-  // Config state
-  const [config, setConfig] = useState<OdooConfig | null>(null);
-  const [configForm, setConfigForm] = useState<ConfigFormData>(INITIAL_CONFIG_FORM);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +80,6 @@ function ChatApp() {
   useEffect(() => {
     if (isLoggedIn && token && initialLoadDone) {
       loadSessions(token);
-      loadConfig(token);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, token, initialLoadDone]);
@@ -130,7 +127,6 @@ function ChatApp() {
       localStorage.setItem('username', username);
 
       loadSessions(data.access);
-      loadConfig(data.access);
     } catch (err) {
       if (err instanceof TypeError && err.message === 'Failed to fetch') {
         setError("Backend serverga ulanib bo'lmadi. Server ishlab turibdimi tekshiring.");
@@ -184,9 +180,6 @@ function ChatApp() {
     setSessions([]);
     setCurrentSessionId(null);
     setMessages([]);
-    setConfig(null);
-    setConfigForm(INITIAL_CONFIG_FORM);
-    setShowConfigModal(false);
     setThinkingSteps([]);
     setStreamingContent('');
     localStorage.clear();
@@ -205,66 +198,6 @@ function ChatApp() {
       setSessions(data);
     } catch (err) {
       console.error('Load sessions error:', err);
-    }
-  };
-
-  const loadConfig = async (authToken: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/config/me/`, {
-        headers: { Authorization: `Bearer ${authToken || token}` },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setConfig(data);
-        setConfigForm({
-          odoo_url: data.odoo_url || '',
-          odoo_db: data.odoo_db || '',
-          odoo_username: data.odoo_username || '',
-          odoo_password: '',
-          telegram_bot_token: '',
-          openai_api_key: '',
-          is_active: data.is_active || false,
-          auto_start: data.auto_start || false,
-        });
-      }
-    } catch (err) {
-      console.error('Load config error:', err);
-    }
-  };
-
-  const handleConfigSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      const method = config ? 'PATCH' : 'POST';
-      const url = config
-        ? `${API_BASE_URL}/api/v1/config/${config.id}/`
-        : `${API_BASE_URL}/api/v1/config/`;
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(configForm),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Configuration save failed');
-      }
-
-      const data = await response.json();
-      setConfig(data);
-      setShowConfigModal(false);
-      alert('Configuration saved successfully!');
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      }
     }
   };
 
@@ -291,11 +224,9 @@ function ChatApp() {
 
       const data = await response.json();
       const normalizedMessages: Message[] = (data.messages || []).map((msg: Message) => {
-        const files = msg.files || msg.file_paths || [];
         return {
           ...msg,
-          files,
-          file_paths: msg.file_paths || files,
+          files: msg.files || [],
           thinkingSteps: msg.thinking_steps || [],
         };
       });
@@ -432,7 +363,7 @@ function ChatApp() {
         loadSessions(token!);
       }
 
-      const filesFromApi = data.files || data.file_paths || [];
+      const filesFromApi = data.files || [];
       const finalContent = accumulatedContent || data.response || '';
 
       const aiMessage: Message = {
@@ -441,7 +372,6 @@ function ChatApp() {
         content: finalContent,
         created_at: new Date().toISOString(),
         files: filesFromApi,
-        file_paths: data.file_paths || filesFromApi,
         thinkingSteps: [...currentSteps],
       };
 
@@ -466,7 +396,7 @@ function ChatApp() {
   const showEmptyState = isLoggedIn && (!currentSessionId || messages.length === 0);
 
   return (
-    <div className="flex h-screen bg-primary text-white font-sans">
+    <div className="flex h-screen bg-primary text-text-primary font-sans">
       {/* Auth Modal */}
       <AuthModal
         isOpen={showAuthModal}
@@ -488,16 +418,6 @@ function ChatApp() {
         }}
       />
 
-      {/* Config Modal */}
-      <ConfigModal
-        isOpen={showConfigModal}
-        error={error}
-        configForm={configForm}
-        onConfigFormChange={(updates) => setConfigForm((prev) => ({ ...prev, ...updates }))}
-        onSubmit={handleConfigSubmit}
-        onClose={() => setShowConfigModal(false)}
-      />
-
       {/* Sidebar */}
       <Sidebar
         isLoggedIn={isLoggedIn}
@@ -509,7 +429,7 @@ function ChatApp() {
         onDeleteSession={deleteSession}
         onLogin={() => setShowAuthModal(true)}
         onLogout={handleLogout}
-        onSettings={() => setShowConfigModal(true)}
+        onSettings={() => navigate('/settings')}
         isOpen={sidebarOpen}
       />
 
@@ -518,14 +438,13 @@ function ChatApp() {
         {/* Header */}
         <AppHeader
           title={currentSession?.title || 'BI Agent'}
-          isLoggedIn={isLoggedIn}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
 
         {/* Chat Area */}
         <div
-          className={`flex-1 flex flex-col overflow-y-auto p-6 bg-primary ${
+          className={`flex-1 flex flex-col overflow-y-auto bg-primary ${
             showEmptyState ? 'justify-center items-center' : ''
           }`}
         >
@@ -555,7 +474,7 @@ function ChatApp() {
         {/* Input Area - only show when there are messages */}
         {isLoggedIn && messages.length > 0 && (
           <div className="border-t border-border bg-primary">
-            {error && <div className="error-banner mx-6 mt-4">{error}</div>}
+            {error && <div className="error-banner max-w-3xl mx-auto mt-4">{error}</div>}
             <MessageInput
               onSendMessage={handleSendMessage}
               disabled={isTyping}
@@ -569,12 +488,110 @@ function ChatApp() {
   );
 }
 
+function SettingsWrapper() {
+  const navigate = useNavigate();
+  const [token] = useState(() => localStorage.getItem('token'));
+  const [username] = useState(() => localStorage.getItem('username') || '');
+  const [config, setConfig] = useState<AgentConfig | null>(null);
+  const [configForm, setConfigForm] = useState<ConfigFormData>(INITIAL_CONFIG_FORM);
+  const [databaseConfig, setDatabaseConfig] = useState<DatabaseConfig | null>(null);
+  const [customInstructions, setCustomInstructions] = useState<CustomInstructions | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/');
+      return;
+    }
+
+    // Load config
+    fetch(`${API_BASE_URL}/api/v1/config/me/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data) {
+          setConfig(data);
+          setConfigForm({
+            telegram_bot_token: '',
+            anthropic_api_key: '',
+            is_active: data.is_active || false,
+            auto_start: data.auto_start || false,
+          });
+        }
+      })
+      .catch(console.error);
+  }, [token, navigate]);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
+  const handleSaveApiKeys = async () => {
+    if (!token) return;
+
+    const method = config ? 'PATCH' : 'POST';
+    const url = config
+      ? `${API_BASE_URL}/api/v1/config/${config.id}/`
+      : `${API_BASE_URL}/api/v1/config/`;
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(configForm),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.detail || 'Configuration save failed');
+    }
+
+    const data = await response.json();
+    setConfig(data);
+    setConfigForm({
+      ...configForm,
+      telegram_bot_token: '',
+      anthropic_api_key: '',
+    });
+  };
+
+  const handleSaveDatabase = async (data: DatabaseConfig) => {
+    console.log('Save database config:', data);
+    setDatabaseConfig(data);
+  };
+
+  const handleSaveCustomInstructions = async (data: CustomInstructions) => {
+    console.log('Save custom instructions:', data);
+    setCustomInstructions(data);
+  };
+
+  return (
+    <SettingsPage
+      config={config}
+      databaseConfig={databaseConfig}
+      customInstructions={customInstructions}
+      configForm={configForm}
+      onConfigFormChange={(updates) => setConfigForm((prev) => ({ ...prev, ...updates }))}
+      onSaveApiKeys={handleSaveApiKeys}
+      onSaveDatabase={handleSaveDatabase}
+      onSaveCustomInstructions={handleSaveCustomInstructions}
+      onClose={() => navigate('/')}
+      username={username}
+      onLogout={handleLogout}
+    />
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ChatApp />} />
         <Route path="/c/:sessionId" element={<ChatApp />} />
+        <Route path="/settings" element={<SettingsWrapper />} />
       </Routes>
     </BrowserRouter>
   );

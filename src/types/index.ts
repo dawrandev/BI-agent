@@ -38,8 +38,7 @@ export interface Message {
   role: MessageRole;
   content: string;
   created_at: string;
-  files?: string[];
-  file_paths?: string[];
+  files?: FileInfo[];
   thinkingSteps?: StreamChunk[];
   thinking_steps?: StreamChunk[];
 }
@@ -71,27 +70,52 @@ export interface User {
 // Config Types
 // ============================================
 
-export interface OdooConfig {
+export interface AgentConfig {
   id: string;
-  odoo_url: string;
-  odoo_db: string;
-  odoo_username: string;
-  odoo_password?: string;
-  telegram_bot_token?: string;
-  openai_api_key?: string;
+  is_active: boolean;
+  auto_start: boolean;
+  has_telegram_token: boolean;
+  has_anthropic_key: boolean;
+}
+
+export interface ConfigFormData {
+  telegram_bot_token: string;
+  anthropic_api_key: string;
   is_active: boolean;
   auto_start: boolean;
 }
 
-export interface ConfigFormData {
-  odoo_url: string;
-  odoo_db: string;
-  odoo_username: string;
-  odoo_password: string;
-  telegram_bot_token: string;
-  openai_api_key: string;
-  is_active: boolean;
-  auto_start: boolean;
+export interface DatabaseConfig {
+  id?: string;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database_name: string;
+  is_connected?: boolean;
+}
+
+export interface CustomInstructions {
+  id?: string;
+  system_prompt: string;
+}
+
+export type SettingsSection =
+  | 'general'
+  | 'api-keys'
+  | 'database'
+  | 'custom-instructions'
+  | 'account';
+
+// ============================================
+// File Types
+// ============================================
+
+export interface FileInfo {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
 }
 
 // ============================================
@@ -109,11 +133,15 @@ export interface SendMessagePayload {
 }
 
 export interface SendMessageResponse {
+  success: boolean;
   response: string;
-  files?: string[];
-  file_paths?: string[];
+  files?: FileInfo[];
   session_id?: string;
   session_title?: string;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
 }
 
 export type ChunkCallback = (chunk: StreamChunk) => void;
@@ -153,7 +181,7 @@ export interface ThinkingIndicatorProps {
 }
 
 export interface FileAttachmentProps {
-  files: string[];
+  files: FileInfo[];
 }
 
 export interface CopyButtonProps {
@@ -229,9 +257,22 @@ export interface ChatViewProps {
 
 export interface AppHeaderProps {
   title: string;
-  isLoggedIn: boolean;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+}
+
+export interface SettingsPageProps {
+  config: AgentConfig | null;
+  databaseConfig: DatabaseConfig | null;
+  customInstructions: CustomInstructions | null;
+  configForm: ConfigFormData;
+  onConfigFormChange: (updates: Partial<ConfigFormData>) => void;
+  onSaveApiKeys: () => Promise<void>;
+  onSaveDatabase: (data: DatabaseConfig) => Promise<void>;
+  onSaveCustomInstructions: (data: CustomInstructions) => Promise<void>;
+  onClose: () => void;
+  username: string;
+  onLogout: () => void;
 }
 
 // ============================================
@@ -279,12 +320,8 @@ export const SUGGESTION_CARDS: SuggestionCard[] = [
 export const API_BASE_URL = 'https://localagent.diyarbek.uz';
 
 export const INITIAL_CONFIG_FORM: ConfigFormData = {
-  odoo_url: '',
-  odoo_db: '',
-  odoo_username: '',
-  odoo_password: '',
   telegram_bot_token: '',
-  openai_api_key: '',
+  anthropic_api_key: '',
   is_active: true,
   auto_start: false,
 };

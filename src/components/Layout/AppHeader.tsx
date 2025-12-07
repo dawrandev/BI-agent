@@ -1,47 +1,30 @@
 import React from 'react';
 import { AppHeaderProps } from '../../types';
+import { SidebarIcon, MenuIcon } from '../Icons';
 
 const AppHeader: React.FC<AppHeaderProps> = ({
   title,
-  isLoggedIn,
   sidebarOpen,
   onToggleSidebar,
 }) => {
   return (
-    <div className="h-[70px] border-b border-border flex items-center justify-between px-8 bg-secondary">
-      <div className="flex items-center gap-4">
+    <div className="h-14 flex items-center justify-between px-4 bg-primary border-b border-border">
+      <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-transparent text-text-muted cursor-pointer transition-all hover:bg-border hover:text-white"
+          className="p-2 rounded-lg hover:bg-secondary text-text-muted hover:text-text-primary transition-all"
+          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            {sidebarOpen ? (
-              <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
-            ) : (
-              <>
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </>
-            )}
-          </svg>
+          {sidebarOpen ? (
+            <SidebarIcon className="w-5 h-5" />
+          ) : (
+            <MenuIcon className="w-5 h-5" />
+          )}
         </button>
-        <span className="font-semibold text-base text-white">{title}</span>
+        <h1 className="text-base font-normal text-text-primary">
+          {title || 'BI Agent'}
+        </h1>
       </div>
-
-      {isLoggedIn && (
-        <div className="status-badge">
-          <div className="status-dot" />
-          <span>Connected</span>
-        </div>
-      )}
     </div>
   );
 };
