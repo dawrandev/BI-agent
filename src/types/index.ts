@@ -98,6 +98,7 @@ export type DatabaseDialect = 'postgresql' | 'mysql' | 'sqlite';
 export interface DatabaseConnection {
   id: number;
   alias: string;
+  connection_uri: string;
   dialect: DatabaseDialect;
   is_default: boolean;
   schema_filter?: string[];

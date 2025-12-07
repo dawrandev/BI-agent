@@ -5,7 +5,7 @@ import {
   DatabaseDialect,
   ConnectionTestResult,
 } from '../../../types';
-import { TrashIcon, DatabaseIcon, PlusIcon } from '../../Icons';
+import { TrashIcon, DatabaseIcon, PlusIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from '../../Icons';
 
 interface ConnectionsSettingsProps {
   connections: DatabaseConnection[];
@@ -23,11 +23,105 @@ interface TestStatus {
   result: ConnectionTestResult | null;
 }
 
-const DIALECT_OPTIONS: { value: DatabaseDialect; label: string }[] = [
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql', label: 'MySQL' },
-  { value: 'sqlite', label: 'SQLite' },
+interface ConnectionFormFields {
+  alias: string;
+  dialect: DatabaseDialect;
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  database: string;
+  is_default: boolean;
+  useRawUri: boolean;
+  rawUri: string;
+}
+
+const DIALECT_OPTIONS: { value: DatabaseDialect; label: string; defaultPort: string }[] = [
+  { value: 'postgresql', label: 'PostgreSQL', defaultPort: '5432' },
+  { value: 'mysql', label: 'MySQL', defaultPort: '3306' },
+  { value: 'sqlite', label: 'SQLite', defaultPort: '' },
 ];
+
+const getDefaultPort = (dialect: DatabaseDialect): string => {
+  const option = DIALECT_OPTIONS.find((o) => o.value === dialect);
+  return option?.defaultPort || '';
+};
+
+interface ParsedConnection {
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  database: string;
+}
+
+const parseConnectionUri = (uri: string, dialect: DatabaseDialect): ParsedConnection => {
+  const result: ParsedConnection = {
+    host: '',
+    port: getDefaultPort(dialect),
+    username: '',
+    password: '',
+    database: '',
+  };
+
+  if (!uri) return result;
+
+  try {
+    // Handle sqlite separately
+    if (dialect === 'sqlite' || uri.startsWith('sqlite')) {
+      const match = uri.match(/sqlite:\/\/\/(.+)/);
+      if (match) {
+        result.database = match[1];
+      }
+      return result;
+    }
+
+    // Parse: dialect://user:pass@host:port/database
+    const regex = /^(\w+):\/\/([^:]+):?([^@]*)@([^:\/]+):?(\d*)\/(.+)$/;
+    const match = uri.match(regex);
+
+    if (match) {
+      result.username = match[2] || '';
+      result.password = match[3] || '';
+      result.host = match[4] || '';
+      result.port = match[5] || getDefaultPort(dialect);
+      result.database = match[6] || '';
+    }
+  } catch {
+    // If parsing fails, return defaults
+  }
+
+  return result;
+};
+
+const buildConnectionUri = (fields: ConnectionFormFields): string => {
+  if (fields.useRawUri) {
+    return fields.rawUri;
+  }
+
+  if (fields.dialect === 'sqlite') {
+    return `sqlite:///${fields.database}`;
+  }
+
+  const { dialect, host, port, username, password, database } = fields;
+  const userPart = password ? `${username}:${password}` : username;
+  const portPart = port ? `:${port}` : '';
+
+  return `${dialect}://${userPart}@${host}${portPart}/${database}`;
+};
+
+const getInitialFormFields = (dialect: DatabaseDialect = 'postgresql'): ConnectionFormFields => ({
+  alias: '',
+  dialect,
+  host: '',
+  port: getDefaultPort(dialect),
+  username: '',
+  password: '',
+  database: '',
+  is_default: false,
+  useRawUri: false,
+  rawUri: '',
+});
 
 const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
   connections,
@@ -40,24 +134,29 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState<DatabaseConnectionCreate>({
-    alias: '',
-    connection_uri: '',
-    dialect: 'postgresql',
-    is_default: false,
-  });
+  const [formFields, setFormFields] = useState<ConnectionFormFields>(getInitialFormFields());
   const [testStatus, setTestStatus] = useState<TestStatus | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const resetForm = () => {
-    setFormData({
-      alias: '',
-      connection_uri: '',
-      dialect: 'postgresql',
-      is_default: false,
-    });
+    setFormFields(getInitialFormFields());
     setShowAddForm(false);
     setEditingId(null);
     setTestStatus(null);
+    setShowAdvanced(false);
+    setShowPassword(false);
+  };
+
+  const updateField = <K extends keyof ConnectionFormFields>(key: K, value: ConnectionFormFields[K]) => {
+    setFormFields((prev) => {
+      const updated = { ...prev, [key]: value };
+      // Update port when dialect changes
+      if (key === 'dialect') {
+        updated.port = getDefaultPort(value as DatabaseDialect);
+      }
+      return updated;
+    });
   };
 
   const handleTestConnection = async (connectionId: number) => {
@@ -74,46 +173,283 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
     }
   };
 
+  const isFormValid = (): boolean => {
+    if (!formFields.alias) return false;
+
+    if (formFields.useRawUri) {
+      return !!formFields.rawUri;
+    }
+
+    if (formFields.dialect === 'sqlite') {
+      return !!formFields.database;
+    }
+
+    return !!(formFields.host && formFields.username && formFields.database);
+  };
+
   const handleCreate = async () => {
-    if (!formData.alias || !formData.connection_uri) return;
-    await onCreateConnection(formData);
-    // Find the newly created connection and test it
-    // We'll need to reload connections first, so test after the parent reloads
+    if (!isFormValid()) return;
+
+    const connectionUri = buildConnectionUri(formFields);
+    await onCreateConnection({
+      alias: formFields.alias,
+      connection_uri: connectionUri,
+      dialect: formFields.dialect,
+      is_default: formFields.is_default,
+    });
     resetForm();
   };
 
   const handleUpdate = async () => {
     if (editingId === null) return;
-    await onUpdateConnection(editingId, formData);
-    // Test connection after update if connection_uri was provided
-    if (formData.connection_uri) {
+
+    const connectionUri = buildConnectionUri(formFields);
+    const hasNewUri = formFields.useRawUri ? !!formFields.rawUri : !!(formFields.host && formFields.username);
+
+    await onUpdateConnection(editingId, {
+      alias: formFields.alias,
+      dialect: formFields.dialect,
+      is_default: formFields.is_default,
+      ...(hasNewUri && { connection_uri: connectionUri }),
+    });
+
+    if (hasNewUri) {
       await handleTestConnection(editingId);
     }
-    setEditingId(null);
-    setFormData({
-      alias: '',
-      connection_uri: '',
-      dialect: 'postgresql',
-      is_default: false,
-    });
-    setShowAddForm(false);
+    resetForm();
   };
 
   const handleEdit = (conn: DatabaseConnection) => {
     setEditingId(conn.id);
-    setFormData({
+    const parsed = parseConnectionUri(conn.connection_uri || '', conn.dialect);
+    setFormFields({
+      ...getInitialFormFields(conn.dialect),
       alias: conn.alias,
-      connection_uri: '', // Don't show - it's write-only
       dialect: conn.dialect,
       is_default: conn.is_default,
+      host: parsed.host,
+      port: parsed.port,
+      username: parsed.username,
+      password: parsed.password,
+      database: parsed.database,
     });
     setShowAddForm(false);
+    setShowAdvanced(false);
+    setShowPassword(false);
   };
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this connection?')) {
       await onDeleteConnection(id);
     }
+  };
+
+  const renderConnectionForm = (isEditing: boolean) => {
+    const isSqlite = formFields.dialect === 'sqlite';
+
+    return (
+      <div className="space-y-4">
+        {/* Basic Info */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="settings-label">Connection Name *</label>
+            <input
+              type="text"
+              value={formFields.alias}
+              onChange={(e) => updateField('alias', e.target.value)}
+              className="input-field"
+              placeholder="My Database"
+            />
+          </div>
+          <div>
+            <label className="settings-label">Database Type</label>
+            <select
+              value={formFields.dialect}
+              onChange={(e) => updateField('dialect', e.target.value as DatabaseDialect)}
+              className="input-field"
+            >
+              {DIALECT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Connection Fields - Show only if not using raw URI */}
+        {!formFields.useRawUri && (
+          <>
+            {isSqlite ? (
+              /* SQLite - just database path */
+              <div>
+                <label className="settings-label">Database File Path *</label>
+                <input
+                  type="text"
+                  value={formFields.database}
+                  onChange={(e) => updateField('database', e.target.value)}
+                  className="input-field"
+                  placeholder="/path/to/database.db"
+                />
+              </div>
+            ) : (
+              /* PostgreSQL / MySQL */
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2">
+                    <label className="settings-label">Host *</label>
+                    <input
+                      type="text"
+                      value={formFields.host}
+                      onChange={(e) => updateField('host', e.target.value)}
+                      className="input-field"
+                      placeholder="localhost"
+                    />
+                  </div>
+                  <div>
+                    <label className="settings-label">Port</label>
+                    <input
+                      type="text"
+                      value={formFields.port}
+                      onChange={(e) => updateField('port', e.target.value)}
+                      className="input-field"
+                      placeholder={getDefaultPort(formFields.dialect)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="settings-label">Username *</label>
+                    <input
+                      type="text"
+                      value={formFields.username}
+                      onChange={(e) => updateField('username', e.target.value)}
+                      className="input-field"
+                      placeholder="postgres"
+                      autoComplete="off"
+                      data-form-type="other"
+                    />
+                  </div>
+                  <div>
+                    <label className="settings-label">
+                      Password {isEditing && <span className="text-text-muted">(leave empty to keep current)</span>}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={formFields.password}
+                        onChange={(e) => updateField('password', e.target.value)}
+                        className="input-field pr-10"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        data-form-type="other"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors"
+                      >
+                        {showPassword ? (
+                          <EyeOffIcon className="w-4 h-4" />
+                        ) : (
+                          <EyeIcon className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="settings-label">Database Name *</label>
+                  <input
+                    type="text"
+                    value={formFields.database}
+                    onChange={(e) => updateField('database', e.target.value)}
+                    className="input-field"
+                    placeholder="mydb"
+                  />
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Advanced: Raw URI */}
+        <div className="border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setShowAdvanced(!showAdvanced);
+              if (!showAdvanced) {
+                updateField('useRawUri', false);
+              }
+            }}
+            className="flex items-center gap-2 text-sm text-text-muted hover:text-text-primary transition-colors"
+          >
+            <ChevronDownIcon className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            Advanced Options
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-3 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formFields.useRawUri}
+                  onChange={(e) => updateField('useRawUri', e.target.checked)}
+                  className="w-4 h-4 accent-accent"
+                />
+                <span className="text-sm text-text-secondary">Use connection URI directly</span>
+              </label>
+
+              {formFields.useRawUri && (
+                <div>
+                  <label className="settings-label">Connection URI *</label>
+                  <input
+                    type="text"
+                    value={formFields.rawUri}
+                    onChange={(e) => updateField('rawUri', e.target.value)}
+                    className="input-field font-mono text-sm"
+                    placeholder="postgresql://user:password@host:5432/database"
+                  />
+                  <p className="text-xs text-text-muted mt-1">
+                    Example: postgresql://user:pass@localhost:5432/mydb
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Default checkbox */}
+        <div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={formFields.is_default}
+              onChange={(e) => updateField('is_default', e.target.checked)}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm text-text-secondary">Set as default connection</span>
+          </label>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={isEditing ? handleUpdate : handleCreate}
+            disabled={isSaving || !isFormValid()}
+            className="btn-primary text-sm"
+          >
+            {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Connection'}
+          </button>
+          <button onClick={resetForm} className="text-sm text-text-muted hover:text-text-primary">
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -137,60 +473,7 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
             >
               {editingId === conn.id ? (
                 /* Edit Mode */
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="settings-label">Alias</label>
-                      <input
-                        type="text"
-                        value={formData.alias}
-                        onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
-                        className="input-field"
-                        placeholder="My Database"
-                      />
-                    </div>
-                    <div>
-                      <label className="settings-label">Dialect</label>
-                      <select
-                        value={formData.dialect}
-                        onChange={(e) =>
-                          setFormData({ ...formData, dialect: e.target.value as DatabaseDialect })
-                        }
-                        className="input-field"
-                      >
-                        {DIALECT_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="settings-label">
-                      Connection URI <span className="text-text-muted">(leave empty to keep current)</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.connection_uri}
-                      onChange={(e) => setFormData({ ...formData, connection_uri: e.target.value })}
-                      className="input-field"
-                      placeholder="postgresql://user:pass@host:5432/db"
-                    />
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={handleUpdate}
-                      disabled={isSaving || !formData.alias}
-                      className="btn-primary text-sm"
-                    >
-                      {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                    <button onClick={resetForm} className="text-sm text-text-muted hover:text-text-primary">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
+                renderConnectionForm(true)
               ) : (
                 /* View Mode */
                 <div className="space-y-3">
@@ -208,9 +491,21 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-text-muted">
-                          {conn.dialect.toUpperCase()} • Created {new Date(conn.created_at).toLocaleDateString()}
-                        </div>
+                        {(() => {
+                          const parsed = parseConnectionUri(conn.connection_uri || '', conn.dialect);
+                          if (conn.dialect === 'sqlite') {
+                            return (
+                              <div className="text-sm text-text-muted">
+                                SQLite • {parsed.database || 'No path'}
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="text-sm text-text-muted">
+                              {conn.dialect.toUpperCase()} • {parsed.username}@{parsed.host}:{parsed.port}/{parsed.database}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -285,72 +580,9 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
 
       {/* Add Connection Form */}
       {showAddForm ? (
-        <div className="p-4 rounded-lg border border-border bg-secondary space-y-4">
-          <h4 className="font-medium text-text-primary">Add New Connection</h4>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="settings-label">Alias *</label>
-              <input
-                type="text"
-                value={formData.alias}
-                onChange={(e) => setFormData({ ...formData, alias: e.target.value })}
-                className="input-field"
-                placeholder="My Database"
-              />
-            </div>
-            <div>
-              <label className="settings-label">Dialect</label>
-              <select
-                value={formData.dialect}
-                onChange={(e) =>
-                  setFormData({ ...formData, dialect: e.target.value as DatabaseDialect })
-                }
-                className="input-field"
-              >
-                {DIALECT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="settings-label">Connection URI *</label>
-            <input
-              type="text"
-              value={formData.connection_uri}
-              onChange={(e) => setFormData({ ...formData, connection_uri: e.target.value })}
-              className="input-field"
-              placeholder="postgresql://user:password@host:5432/database"
-            />
-            <p className="text-xs text-text-muted mt-1">
-              Example: postgresql://user:pass@localhost:5432/mydb
-            </p>
-          </div>
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_default}
-                onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
-                className="w-4 h-4 accent-accent"
-              />
-              <span className="text-sm text-text-secondary">Set as default connection</span>
-            </label>
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCreate}
-              disabled={isSaving || !formData.alias || !formData.connection_uri}
-              className="btn-primary text-sm"
-            >
-              {isSaving ? 'Creating...' : 'Create Connection'}
-            </button>
-            <button onClick={resetForm} className="text-sm text-text-muted hover:text-text-primary">
-              Cancel
-            </button>
-          </div>
+        <div className="p-4 rounded-lg border border-border bg-secondary">
+          <h4 className="font-medium text-text-primary mb-4">Add New Connection</h4>
+          {renderConnectionForm(false)}
         </div>
       ) : (
         <button
