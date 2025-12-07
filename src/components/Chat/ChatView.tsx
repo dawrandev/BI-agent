@@ -20,8 +20,10 @@ const ChatView: React.FC<ChatViewProps> = ({
           {message.role === 'assistant' &&
             message.thinkingSteps &&
             message.thinkingSteps.length > 0 && (
-              <div className="max-w-3xl mx-auto w-full px-4">
-                <ThinkingIndicator steps={message.thinkingSteps} isStreaming={false} />
+              <div className="w-full py-2">
+                <div className="max-w-5xl mx-auto px-4 md:px-8">
+                  <ThinkingIndicator steps={message.thinkingSteps} isStreaming={false} />
+                </div>
               </div>
             )}
           <ChatMessage message={message} />
@@ -30,45 +32,49 @@ const ChatView: React.FC<ChatViewProps> = ({
 
       {/* Live thinking steps during streaming */}
       {isStreaming && thinkingSteps.length > 0 && (
-        <div className="max-w-3xl mx-auto w-full px-4">
-          <ThinkingIndicator steps={thinkingSteps} isStreaming={true} />
+        <div className="w-full py-2">
+          <div className="max-w-5xl mx-auto px-4 md:px-8">
+            <ThinkingIndicator steps={thinkingSteps} isStreaming={true} />
+          </div>
         </div>
       )}
 
-      {/* Streaming content */}
+      {/* Streaming content - clean, no box */}
       {isStreaming && streamingContent && (
-        <div className="w-full py-6">
-          <div className="max-w-3xl mx-auto px-4 flex gap-4">
-            <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-              <SparklesIcon className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-text-primary mb-1">
-                BI Agent
+        <div className="w-full py-5">
+          <div className="max-w-5xl mx-auto px-4 md:px-8">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+                  <SparklesIcon className="w-4 h-4 text-white" />
+                </div>
               </div>
-              <div className="text-text-secondary text-base leading-relaxed whitespace-pre-wrap">
-                {streamingContent}
+              <div className="flex-1 min-w-0">
+                <div className="text-text-primary text-base leading-relaxed whitespace-pre-wrap">
+                  {streamingContent}
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Basic typing indicator */}
+      {/* Basic typing indicator - clean */}
       {isTyping && !isStreaming && (
-        <div className="w-full py-6">
-          <div className="max-w-3xl mx-auto px-4 flex gap-4">
-            <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-              <SparklesIcon className="w-4 h-4 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-text-primary mb-1">
-                BI Agent
+        <div className="w-full py-5">
+          <div className="max-w-5xl mx-auto px-4 md:px-8">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
+                  <SparklesIcon className="w-4 h-4 text-white" />
+                </div>
               </div>
-              <div className="flex gap-1.5 items-center py-1">
-                <span className="typing-dot" />
-                <span className="typing-dot" />
-                <span className="typing-dot" />
+              <div className="flex-1 min-w-0">
+                <div className="flex gap-1.5 items-center py-2">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </div>
               </div>
             </div>
           </div>

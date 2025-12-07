@@ -89,14 +89,20 @@ function ChatApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, token, initialLoadDone]);
 
+  // Track current session ID in ref to avoid dependency loop
+  const currentSessionIdRef = useRef<string | null>(null);
+  currentSessionIdRef.current = currentSessionId;
+
   // Handle URL session ID changes
   useEffect(() => {
     if (initialLoadDone && isLoggedIn && token) {
       if (urlSessionId) {
-        if (urlSessionId !== currentSessionId) {
+        // Only load if URL changed to a different session
+        if (urlSessionId !== currentSessionIdRef.current) {
           selectSession(urlSessionId, token);
         }
-      } else if (currentSessionId) {
+      } else if (currentSessionIdRef.current) {
+        // URL has no session, clear current
         setCurrentSessionId(null);
         setMessages([]);
         setThinkingSteps([]);
@@ -104,7 +110,7 @@ function ChatApp() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlSessionId, initialLoadDone, isLoggedIn, token, currentSessionId]);
+  }, [urlSessionId, initialLoadDone, isLoggedIn, token]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
