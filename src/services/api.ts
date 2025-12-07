@@ -1,35 +1,41 @@
-const API_BASE_URL = 'https://localagent.diyarbek.uz';
+import {
+  AuthResponse,
+  Session,
+  SendMessagePayload,
+  SendMessageResponse,
+  StreamChunk,
+  ChunkCallback,
+  API_BASE_URL,
+} from '../types';
 
 class ApiService {
+  private baseUrl: string;
+
   constructor() {
     this.baseUrl = API_BASE_URL;
   }
 
-  async login(username, password) {
+  async login(username: string, password: string): Promise<AuthResponse> {
     const response = await fetch(`${this.baseUrl}/api/v1/token/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password }),
     });
 
     if (!response.ok) {
-      throw new Error('Login xato. Username yoki parol noto\'g\'ri.');
+      throw new Error("Login xato. Username yoki parol noto'g'ri.");
     }
 
     return response.json();
   }
 
-  async register(username, password) {
-    throw new Error('Register funksiyasi hozircha mavjud emas.');
-  }
-
-  async getSessions(token) {
+  async getSessions(token: string): Promise<Session[]> {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/`, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
@@ -39,11 +45,11 @@ class ApiService {
     return response.json();
   }
 
-  async getSession(sessionId, token) {
+  async getSession(sessionId: string, token: string): Promise<Session> {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/${sessionId}/`, {
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
@@ -53,22 +59,22 @@ class ApiService {
     return response.json();
   }
 
-  async createSession(token, title = 'New Chat') {
+  async createSession(token: string, title: string = 'New Chat'): Promise<Session> {
     try {
       const response = await fetch(`${this.baseUrl}/api/v1/sessions/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title })
+        body: JSON.stringify({ title }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         try {
           const errorData = JSON.parse(errorText);
-          throw new Error(errorData.detail || errorData.message || 'Session yaratib bo\'lmadi');
+          throw new Error(errorData.detail || errorData.message || "Session yaratib bo'lmadi");
         } catch {
           throw new Error(`Server xatolik: ${response.status}`);
         }
@@ -81,25 +87,30 @@ class ApiService {
     }
   }
 
-  async deleteSession(sessionId, token) {
+  async deleteSession(sessionId: string, token: string): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/${sessionId}/`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     if (!response.ok) {
-      throw new Error('Session o\'chirishda xatolik');
+      throw new Error("Session o'chirishda xatolik");
     }
 
     return true;
   }
 
-  async sendMessage(message, sessionId, token, onChunk) {
-    const payload = {
+  async sendMessage(
+    message: string,
+    sessionId: string,
+    token: string,
+    onChunk?: ChunkCallback
+  ): Promise<SendMessageResponse> {
+    const payload: SendMessagePayload = {
       message,
-      session_id: sessionId
+      session_id: sessionId,
     };
 
     if (onChunk && typeof onChunk === 'function') {
@@ -109,7 +120,11 @@ class ApiService {
     return this.sendStandardRequest(payload, token);
   }
 
-  async sendStreamingMessage(payload, token, onChunk) {
+  private async sendStreamingMessage(
+    payload: SendMessagePayload,
+    token: string,
+    onChunk: ChunkCallback
+  ): Promise<SendMessageResponse> {
     try {
       return await this.sendStreamingRequest(payload, token, onChunk);
     } catch (streamError) {
@@ -118,15 +133,19 @@ class ApiService {
     }
   }
 
-  async sendStreamingRequest(payload, token, onChunk) {
+  private async sendStreamingRequest(
+    payload: SendMessagePayload,
+    token: string,
+    onChunk: ChunkCallback
+  ): Promise<SendMessageResponse> {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/stream/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
+        Accept: 'text/event-stream',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (response.status === 404) {
@@ -144,7 +163,7 @@ class ApiService {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
-    let fullResponse = null;
+    let fullResponse: SendMessageResponse | null = null;
 
     try {
       while (true) {
@@ -153,16 +172,14 @@ class ApiService {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Process complete SSE events (separated by \n\n)
-        let boundaryIndex;
+        let boundaryIndex: number;
         while ((boundaryIndex = buffer.indexOf('\n\n')) !== -1) {
           const eventChunk = buffer.slice(0, boundaryIndex);
           buffer = buffer.slice(boundaryIndex + 2);
 
-          // Parse event type and data
           const lines = eventChunk.split('\n');
-          let eventType = null;
-          let eventData = null;
+          let eventType: string | null = null;
+          let eventData: Record<string, unknown> | null = null;
 
           for (const line of lines) {
             if (line.startsWith('event:')) {
@@ -172,7 +189,7 @@ class ApiService {
               if (rawData && rawData !== '[DONE]') {
                 try {
                   eventData = JSON.parse(rawData);
-                } catch (e) {
+                } catch {
                   console.warn('Failed to parse SSE data:', rawData);
                 }
               }
@@ -182,9 +199,8 @@ class ApiService {
           if (eventType && eventData) {
             this.emitEvent(eventType, eventData, onChunk);
 
-            // Store complete response
             if (eventType === 'complete') {
-              fullResponse = eventData;
+              fullResponse = eventData as unknown as SendMessageResponse;
             }
           }
         }
@@ -193,8 +209,8 @@ class ApiService {
       // Flush remaining buffer
       if (buffer.trim()) {
         const lines = buffer.split('\n');
-        let eventType = null;
-        let eventData = null;
+        let eventType: string | null = null;
+        let eventData: Record<string, unknown> | null = null;
 
         for (const line of lines) {
           if (line.startsWith('event:')) {
@@ -204,7 +220,7 @@ class ApiService {
             if (rawData && rawData !== '[DONE]') {
               try {
                 eventData = JSON.parse(rawData);
-              } catch (e) {
+              } catch {
                 console.warn('Failed to parse SSE data:', rawData);
               }
             }
@@ -214,7 +230,7 @@ class ApiService {
         if (eventType && eventData) {
           this.emitEvent(eventType, eventData, onChunk);
           if (eventType === 'complete') {
-            fullResponse = eventData;
+            fullResponse = eventData as unknown as SendMessageResponse;
           }
         }
       }
@@ -229,90 +245,95 @@ class ApiService {
     }
   }
 
-  emitEvent(eventType, data, onChunk) {
-    // Map new event format to chunk types
+  private emitEvent(
+    eventType: string,
+    data: Record<string, unknown>,
+    onChunk: ChunkCallback
+  ): void {
     switch (eventType) {
       case 'step_started':
         onChunk({
           type: 'step_started',
-          step: data.step,
-          message: data.message
+          step: data.step as string,
+          message: data.message as string,
         });
         break;
 
       case 'step_completed':
         onChunk({
           type: 'step_completed',
-          step: data.step,
-          message: data.message
+          step: data.step as string,
+          message: data.message as string,
         });
         break;
 
       case 'react_thinking':
         onChunk({
           type: 'react_thinking',
-          step: data.step,
-          message: data.message,
-          icon: data.icon || '🤔'
+          step: data.step as string,
+          message: data.message as string,
+          icon: (data.icon as string) || '🤔',
         });
         break;
 
       case 'react_action':
         onChunk({
           type: 'react_action',
-          step: data.step,
-          message: data.message,
-          icon: data.icon || '🔧',
-          tool: data.tool
+          step: data.step as string,
+          message: data.message as string,
+          icon: (data.icon as string) || '🔧',
+          tool: data.tool as string,
         });
         break;
 
       case 'react_observation':
         onChunk({
           type: 'react_observation',
-          step: data.step,
-          message: data.message,
-          icon: data.icon || '✅'
+          step: data.step as string,
+          message: data.message as string,
+          icon: (data.icon as string) || '✅',
         });
         break;
 
       case 'react_finishing':
         onChunk({
           type: 'react_finishing',
-          step: data.step,
-          message: data.message,
-          icon: data.icon || '📝'
+          step: data.step as string,
+          message: data.message as string,
+          icon: (data.icon as string) || '📝',
         });
         break;
 
       case 'complete':
         onChunk({
           type: 'complete',
-          response: data.response,
-          files: data.files || [],
-          session_id: data.session_id,
-          session_title: data.session_title,
-          usage: data.usage
+          response: data.response as string,
+          files: (data.files as string[]) || [],
+          session_id: data.session_id as string,
+          session_title: data.session_title as string,
+          usage: data.usage as Record<string, unknown>,
         });
         break;
 
       default:
-        // Handle any other event types
         onChunk({
-          type: eventType,
-          ...data
-        });
+          type: eventType as StreamChunk['type'],
+          ...data,
+        } as StreamChunk);
     }
   }
 
-  async sendStandardRequest(payload, token) {
+  private async sendStandardRequest(
+    payload: SendMessagePayload,
+    token: string
+  ): Promise<SendMessageResponse> {
     const response = await fetch(`${this.baseUrl}/api/v1/sessions/send_message/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -323,14 +344,15 @@ class ApiService {
     return this.normalizeFiles(data);
   }
 
-  normalizeFiles(data) {
+  private normalizeFiles(data: SendMessageResponse): SendMessageResponse {
     const files = data.files || data.file_paths || [];
     return {
       ...data,
       files,
-      file_paths: data.file_paths || files
+      file_paths: data.file_paths || files,
     };
   }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;
