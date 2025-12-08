@@ -403,7 +403,7 @@ export const SUGGESTION_CARDS: SuggestionCard[] = [
 // Constants
 // ============================================
 
-export const API_BASE_URL = 'https://localagent.diyarbek.uz';
+export const API_BASE_URL = 'https://biagent.diyarbek.uz';
 
 export const INITIAL_CONFIG_FORM: ConfigFormData = {
   telegram_bot_token: '',

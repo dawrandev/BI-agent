@@ -25,7 +25,7 @@ npm run build # Production build to /build
 
 ### API Integration
 
-- Backend API: `https://localagent.diyarbek.uz` (defined in `src/types/index.ts`)
+- Backend API: `https://biagent.diyarbek.uz` (defined in `src/types/index.ts`)
 - JWT authentication with token/refresh flow stored in localStorage
 - SSE streaming for real-time AI responses (`/api/v1/sessions/stream/`)
 - Falls back to standard POST if streaming unavailable
