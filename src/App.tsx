@@ -660,14 +660,42 @@ function SettingsWrapper() {
     setIsSavingConnection(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      let response: Response;
+
+      // Use FormData for file uploads (SQLite with database_file)
+      if (data.database_file) {
+        const formData = new FormData();
+        formData.append('alias', data.alias);
+        formData.append('dialect', data.dialect || 'sqlite');
+        formData.append('is_default', String(data.is_default || false));
+        formData.append('database_file', data.database_file);
+        if (data.connection_uri) {
+          formData.append('connection_uri', data.connection_uri);
+        }
+
+        response = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+      } else {
+        // Standard JSON request for other connections
+        response = await fetch(`${API_BASE_URL}/api/v1/connections/`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            alias: data.alias,
+            connection_uri: data.connection_uri || '',
+            dialect: data.dialect,
+            is_default: data.is_default,
+          }),
+        });
+      }
 
       if (!response.ok) {
         const err = await response.json();

@@ -34,6 +34,7 @@ interface ConnectionFormFields {
   is_default: boolean;
   useRawUri: boolean;
   rawUri: string;
+  databaseFile: File | null;
 }
 
 const DIALECT_OPTIONS: { value: DatabaseDialect; label: string; defaultPort: string }[] = [
@@ -77,7 +78,7 @@ const parseConnectionUri = (uri: string, dialect: DatabaseDialect): ParsedConnec
     }
 
     // Parse: dialect://user:pass@host:port/database
-    const regex = /^(\w+):\/\/([^:]+):?([^@]*)@([^:\/]+):?(\d*)\/(.+)$/;
+    const regex = /^(\w+):\/\/([^:]+):?([^@]*)@([^:/]+):?(\d*)\/(.+)$/;
     const match = uri.match(regex);
 
     if (match) {
@@ -121,6 +122,7 @@ const getInitialFormFields = (dialect: DatabaseDialect = 'postgresql'): Connecti
   is_default: false,
   useRawUri: false,
   rawUri: '',
+  databaseFile: null,
 });
 
 const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
@@ -181,7 +183,8 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
     }
 
     if (formFields.dialect === 'sqlite') {
-      return !!formFields.database;
+      // SQLite: either file upload or database path is valid
+      return !!(formFields.databaseFile || formFields.database);
     }
 
     return !!(formFields.host && formFields.username && formFields.database);
@@ -190,12 +193,15 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
   const handleCreate = async () => {
     if (!isFormValid()) return;
 
-    const connectionUri = buildConnectionUri(formFields);
+    const isSqliteWithFile = formFields.dialect === 'sqlite' && formFields.databaseFile;
+    const connectionUri = isSqliteWithFile ? '' : buildConnectionUri(formFields);
+
     await onCreateConnection({
       alias: formFields.alias,
       connection_uri: connectionUri,
       dialect: formFields.dialect,
       is_default: formFields.is_default,
+      ...(isSqliteWithFile && { database_file: formFields.databaseFile! }),
     });
     resetForm();
   };
@@ -281,16 +287,79 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
         {!formFields.useRawUri && (
           <>
             {isSqlite ? (
-              /* SQLite - just database path */
-              <div>
-                <label className="settings-label">Database File Path *</label>
-                <input
-                  type="text"
-                  value={formFields.database}
-                  onChange={(e) => updateField('database', e.target.value)}
-                  className="input-field"
-                  placeholder="/path/to/database.db"
-                />
+              /* SQLite - file upload or path */
+              <div className="space-y-4">
+                {/* File Upload Option */}
+                <div>
+                  <label className="settings-label">Upload SQLite File</label>
+                  <div className="flex items-center gap-3">
+                    <label className="flex-1 cursor-pointer">
+                      <div className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-border hover:border-accent hover:bg-accent/5 transition-all">
+                        <svg className="w-5 h-5 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <span className="text-sm text-text-secondary">
+                          {formFields.databaseFile
+                            ? formFields.databaseFile.name
+                            : 'Choose .db or .sqlite file'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".db,.sqlite,.sqlite3"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          updateField('databaseFile', file);
+                          if (file) {
+                            updateField('database', '');
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    {formFields.databaseFile && (
+                      <button
+                        type="button"
+                        onClick={() => updateField('databaseFile', null)}
+                        className="p-2 rounded-lg text-text-muted hover:text-error hover:bg-error/10 transition-all"
+                        title="Remove file"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {formFields.databaseFile && (
+                    <p className="text-xs text-text-muted mt-2">
+                      File size: {(formFields.databaseFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  )}
+                </div>
+
+                {/* Or divider */}
+                {!formFields.databaseFile && (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 border-t border-border"></div>
+                      <span className="text-xs text-text-muted">OR</span>
+                      <div className="flex-1 border-t border-border"></div>
+                    </div>
+
+                    {/* Path Input Option */}
+                    <div>
+                      <label className="settings-label">Database File Path</label>
+                      <input
+                        type="text"
+                        value={formFields.database}
+                        onChange={(e) => updateField('database', e.target.value)}
+                        className="input-field"
+                        placeholder="/path/to/database.db"
+                      />
+                      <p className="text-xs text-text-muted mt-1">
+                        Enter path to an existing SQLite database on the server
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               /* PostgreSQL / MySQL */
@@ -494,9 +563,21 @@ const ConnectionsSettings: React.FC<ConnectionsSettingsProps> = ({
                         {(() => {
                           const parsed = parseConnectionUri(conn.connection_uri || '', conn.dialect);
                           if (conn.dialect === 'sqlite') {
+                            const displayPath = conn.database_file_name || parsed.database || 'No path';
                             return (
-                              <div className="text-sm text-text-muted">
-                                SQLite • {parsed.database || 'No path'}
+                              <div className="text-sm text-text-muted flex items-center gap-1">
+                                <span>SQLite</span>
+                                <span>•</span>
+                                {conn.database_file_name ? (
+                                  <span className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    {displayPath}
+                                  </span>
+                                ) : (
+                                  <span>{displayPath}</span>
+                                )}
                               </div>
                             );
                           }

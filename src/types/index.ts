@@ -104,14 +104,17 @@ export interface DatabaseConnection {
   schema_filter?: string[];
   created_at: string;
   updated_at: string;
+  database_file_name?: string | null;
+  effective_uri?: string;
 }
 
 export interface DatabaseConnectionCreate {
   alias: string;
-  connection_uri: string;
+  connection_uri?: string;
   dialect?: DatabaseDialect;
   is_default?: boolean;
   schema_filter?: string[];
+  database_file?: File;
 }
 
 export interface ConnectionTestResult {
